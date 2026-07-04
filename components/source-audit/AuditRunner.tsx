@@ -82,7 +82,7 @@ function RunningState({ brand }: { brand: string }) {
         <p className="eyebrow text-signal mb-6">Auditing · {brand}</p>
         <h1 className="font-display text-6xl text-ink mb-10"
             style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
-          Scanning the eight sources…
+          Scanning the nine sources…
         </h1>
         <ol className="space-y-3 max-w-2xl">
           {steps.map((s, i) => (
@@ -149,7 +149,7 @@ function ReportView({ report }: { report: CitationCoverageReport }) {
                  'Sparse profile. Likely invisible to plain-mode LLMs. High-impact fixes available.'}
               </p>
               <p className="text-sm text-muted font-data">
-                {presentCount}/8 sources · {liveCount}/2 live adapters reachable · scan {new Date(report.scannedAt).toLocaleString()}
+                {presentCount}/9 sources · {liveCount}/3 live adapters reachable · scan {new Date(report.scannedAt).toLocaleString()}
               </p>
             </aside>
           </div>

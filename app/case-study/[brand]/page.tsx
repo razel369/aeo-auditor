@@ -214,7 +214,7 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
         nextHref={`/case-study/${study.slug}/playbook`}
         altLabel="or talk to us"
         altHref="/contact"
-        pitch="Eight sources. Copy-paste drafts. The exact playbook we run on every client."
+        pitch="Nine sources. Copy-paste drafts. The exact playbook we run on every client."
       />
 
       <SiteFooter />

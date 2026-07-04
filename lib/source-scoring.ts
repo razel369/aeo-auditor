@@ -17,6 +17,7 @@ import type { SourceId, SourceProfile } from './source-adapters';
 const WEIGHTS: Record<SourceId, number> = {
   wikipedia: 3,
   wikidata: 2,
+  hackernews: 1.2,  // recent launches + developer signal
   crunchbase: 1.5,
   g2: 1.5,
   capterra: 1,
@@ -67,6 +68,7 @@ export interface ActionItem {
 const EFFORT_FOR_ID: Record<SourceId, string> = {
   wikipedia: '2-4 hours (deep article)',
   wikidata: '~30 min (create or extend Q-item)',
+  hackernews: '~2-4 hours (Show HN post + community thread)',
   crunchbase: '1 hour (analyst review)',
   g2: '~15 min (verify) or 45 min (write review)',
   capterra: '~15 min',

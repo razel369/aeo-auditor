@@ -82,9 +82,10 @@ export default function SalesPage() {
             That advice is wrong for most brands. Your problem is not that you are
             not writing enough. Your problem is that the AI engines you are trying to
             reach do not have enough <em>third-party citations</em> on you in the
-            sources they actually crawl. Wikipedia, G2, Capterra, Crunchbase,
-            Reddit, Hacker News, Product Hunt, LinkedIn. Eight sources account for
-            most of the citations in a typical buyer-intent query — and most B2B
+            sources they actually crawl. Wikipedia, Wikidata, HackerNews, G2,
+            Capterra, Crunchbase, Reddit, Product Hunt, LinkedIn. Nine sources
+            account for most of the citations in a typical buyer-intent query
+            — and most B2B
             SaaS brands are on three of them at best.
           </p>
 

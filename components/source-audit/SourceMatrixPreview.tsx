@@ -5,6 +5,8 @@ const SOURCES = [
     why: 'Most-cited single source in LLM training. Anchor source. Free to query.' },
   { id: 'wikidata',      name: 'Wikidata',      mode: 'live', w: 2.0,
     why: 'Structured-claim backbone. Cheapest place to plant a single fact about a brand.' },
+  { id: 'hackernews',    name: 'HackerNews',    mode: 'live', w: 1.2,
+    why: 'Algolia HN search. Show HN launches + dev-tool threads cited heavily by LLMs.' },
   { id: 'crunchbase',    name: 'Crunchbase',    mode: 'stub', w: 1.5,
     why: 'Funding, leadership. Gated by Cloudflare. Verified manually during engagement.' },
   { id: 'g2',            name: 'G2',            mode: 'stub', w: 1.5,
@@ -37,7 +39,7 @@ export function SourceMatrixPreview() {
           <div className="col-span-12 md:col-span-10">
             <h2 className="font-display text-headline text-ink"
                 style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
-              Eight sources. Five states. Zero secrets.
+              Nine sources. Five states. Zero secrets.
             </h2>
             <p className="mt-4 text-base text-muted max-w-3xl">
               Each source has a state badge. We are explicit about which sources

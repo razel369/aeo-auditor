@@ -87,7 +87,7 @@ export async function listRecentSourceAudits(limit = 8): Promise<{
       seen.set(r.brand, {
         brand: r.brand,
         scannedAt: r.latest,
-        present: Math.min(8, r.sources_present),
+        present: Math.min(9, r.sources_present),
       });
       if (seen.size >= limit) break;
     }
@@ -95,7 +95,7 @@ export async function listRecentSourceAudits(limit = 8): Promise<{
       brand: r.brand,
       scannedAt: r.scannedAt,
       sourcesPresent: r.present,
-      sourcesTotal: 8,
+      sourcesTotal: 9,
     }));
   } catch {
     return [];

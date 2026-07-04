@@ -109,7 +109,7 @@ export default function ServicesPage() {
                 className="font-display text-headline text-ink"
                 style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
               >
-                Eight sources account for 80% of AI citations in B2B SaaS.
+                Nine sources account for 80% of AI citations in B2B SaaS.
                 We get you onto all eight.
               </h2>
             </div>

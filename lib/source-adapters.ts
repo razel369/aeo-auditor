@@ -24,7 +24,8 @@ export type SourceId =
   | 'capterra'
   | 'product_hunt'
   | 'reddit'
-  | 'linkedin';
+  | 'linkedin'
+  | 'hackernews';
 
 export type SourceMode = 'live' | 'stub' | 'manual' | 'gated' | 'skipped';
 
@@ -144,6 +145,7 @@ function wikipediaAdapter(): SourceAdapter {
       const wikibase = page?.pageprops?.wikibase_item ?? null;
       const extract = page?.extract ?? '';
       const notes: string[] = [];
+      let categoryMatched = true;
       if (exists) {
         if (bytes !== null && bytes < 3000) notes.push(`Short article (${bytes.toLocaleString()} bytes)`);
         else if (bytes !== null && bytes >= 20000) notes.push(`Deep article (${bytes.toLocaleString()} bytes)`);
@@ -153,15 +155,38 @@ function wikipediaAdapter(): SourceAdapter {
         if (firstClause && !firstClause.toLowerCase().includes(brand.toLowerCase())) {
           notes.push('Opening sentence does not name the brand');
         }
+        // Category-match check: if the caller passed a category and the
+        // article's first paragraphs do not mention it, this is almost
+        // certainly a wrong-but-related page (Linear → Linearity). Drop the
+        // score and flag.
+        if (category) {
+          const loweredExtract = extract.toLowerCase();
+          const loweredCat = category.toLowerCase();
+          // Tokenize the category on whitespace; require at least one token to
+          // appear in the extract OR let brand-name presence vouch.
+          const catWords = loweredCat.split(/\s+/).filter((w) => w.length > 2);
+          const matchedByCategory = catWords.some((w) => loweredExtract.includes(w));
+          const matchedByBrand = firstClause.toLowerCase().includes(brand.toLowerCase());
+          categoryMatched = matchedByCategory || matchedByBrand;
+          if (!categoryMatched) {
+            notes.push(
+              `Category mismatch — page exists, but no mention of "${category}" in opening. Likely a wrong-but-titled article (e.g. Linear → Linearity).`,
+            );
+          }
+        }
       } else {
         notes.push('No Wikipedia article for this brand');
       }
-      const qualityScore = !exists ? 0
+      let qualityScore = !exists ? 0
         : Math.min(10, Math.round(
             (bytes !== null ? Math.min(4, bytes / 20000 * 4) : 1) +
             (freshnessDays !== null ? Math.max(0, 4 - freshnessDays / 365 * 4) : 2) +
             2
           ));
+      if (exists && !categoryMatched) {
+        // Cap to 2/10 — page exists but is not about this brand.
+        qualityScore = Math.min(qualityScore, 2);
+      }
       const rawExcerpt = extract ? extract.slice(0, 280) : null;
       return {
         sourceId: 'wikipedia', sourceName: 'Wikipedia', brand, category,
@@ -198,27 +223,43 @@ function wikidataAdapter(): SourceAdapter {
       }
       const j: any = await r.json();
       const search = j.search ?? [];
-      const match = search.find((s: any) => category && (s.description ?? '').toLowerCase().includes(category.toLowerCase()))
-                  ?? search[0];
-      const exists = !!match;
+      // Two-tier matching: prefer a search-result whose description overlaps
+      // the caller's category. Fall back to the top hit only if category wasn't
+      // supplied. Without this guard, a brand-name query like "Linear" returns
+      // a math-software Q-item even when we asked for "project management".
+      const categoryMatches = (s: any) => {
+        if (!category) return true;
+        const desc = (s.description ?? '').toLowerCase();
+        return desc.includes(category.toLowerCase());
+      };
+      const match = search.find(categoryMatches) ?? (category ? null : search[0]);
+      const hasMatch = !!match;
+      // If the top hit exists but doesn't match the category, we still note it
+      // but report the brand as missing a clean Q-item — that's the honest
+      // shape of the data.
+      const topHit = search[0] ?? null;
+      const topIsCategoryMismatch =
+        category && topHit && topHit.id !== match?.id;
+      const notes: string[] = [];
+      const url = match?.id ? `https://www.wikidata.org/wiki/${match.id}` : null;
       const qid = match?.id ?? null;
       const description = match?.description ?? null;
-      const url = qid ? `https://www.wikidata.org/wiki/${qid}` : null;
-      const notes: string[] = [];
-      if (exists) {
+      if (match) {
         notes.push(`${qid}: ${description ?? '(no description)'}`);
-        if (category && description && !description.toLowerCase().includes(category.toLowerCase())) {
-          notes.push(`Top result may not match category "${category}"`);
-        }
+      } else if (topIsCategoryMismatch && topHit) {
+        notes.push(
+          `Top result ${topHit.id} (${topHit.description ?? 'no description'}) does not match category "${category}"`,
+        );
+        notes.push('Treat as missing — candidate Q-item, not a confirmed match.');
       } else {
         notes.push('No Wikidata Q-item for this brand');
         notes.push('Action: create at wikidata.org/wiki/Special:NewItem (~30 min)');
       }
       return {
         sourceId: 'wikidata', sourceName: 'Wikidata', brand, category,
-        url, exists, discoveredAt: new Date().toISOString(),
-        bytes: null, claims: exists ? 5 : 0, freshnessDays: null,
-        qualityScore: exists ? 7 : 0, notes,
+        url, exists: hasMatch, discoveredAt: new Date().toISOString(),
+        bytes: null, claims: hasMatch ? 5 : 0, freshnessDays: null,
+        qualityScore: hasMatch ? 7 : 0, notes,
         mode: 'live', rationale: 'Free Wikibase API',
         rawExcerpt: description, error: null
       };
@@ -338,6 +379,75 @@ function linkedinAdapter(): SourceAdapter {
   };
 }
 
+/* ──────────────────────── HACKERNEWS ──────────────────────── */
+
+function hackernewsAdapter(): SourceAdapter {
+  return {
+    id: 'hackernews', name: 'HackerNews', mode: 'live',
+    rationale: 'Algolia search API on HackerNews posts — free, public, returns Show HN launches and discussion threads. Frequently cited in LLM responses for developer tools.',
+    async scan(brand, category) {
+      const url = `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(brand)}&tags=story&hitsPerPage=20`;
+      const r = await safeFetch(url);
+      if (!r || !r.ok) {
+        return {
+          sourceId: 'hackernews', sourceName: 'HackerNews', brand, category,
+          url: null, exists: false, discoveredAt: new Date().toISOString(),
+          bytes: null, claims: null, freshnessDays: null,
+          qualityScore: 0,
+          notes: ['Algolia HN search unreachable'],
+          mode: 'live', rationale: 'API unreachable in this scan',
+          rawExcerpt: null, error: `HTTP ${r?.status ?? 'no-response'}`
+        };
+      }
+      const j: any = await r.json();
+      const hits: any[] = j.hits ?? [];
+      // Take the first 5 hits' titles and join as a proxy "claim count" — each
+      // hit is a public discussion thread that LLMs can read.
+      const titles = hits.slice(0, 5).map((h: any) => h.title ?? h.story_title ?? '').filter(Boolean);
+      // Freshness: relative to oldest hit.
+      const oldestTs = hits.reduce((min: number | null, h: any) => {
+        const ts = h.created_at_i ?? null;
+        if (ts === null) return min;
+        if (min === null) return ts;
+        return ts < min ? ts : min;
+      }, null as number | null);
+      const freshnessDays = oldestTs
+        ? Math.floor((Date.now() / 1000 - oldestTs) / (24 * 60 * 60))
+        : null;
+      const exists = hits.length > 0;
+      const firstHit = hits[0];
+      const resultUrl = firstHit
+        ? (firstHit.url || `https://news.ycombinator.com/item?id=${firstHit.objectID}`)
+        : null;
+      const notes: string[] = [];
+      if (exists) {
+        notes.push(`${hits.length} story hits on HackerNews`);
+        if (freshnessDays !== null && freshnessDays < 90) notes.push('Mentioned in last 90 days — recent signal');
+        if (hits.some((h: any) => /show hn/i.test(h.title ?? ''))) {
+          notes.push('Includes at least one "Show HN" thread — strongest possible signal');
+        }
+      } else {
+        notes.push('No HackerNews presence for this brand');
+        notes.push('Action: plan a "Show HN" launch or initiate a discussion thread');
+      }
+      // Quality: 4 (present, no Show HN) up to 8 (recent Show HN thread).
+      let qualityScore = 0;
+      if (exists) {
+        qualityScore = hits.some((h: any) => /show hn/i.test(h.title ?? '')) ? 8 : 5;
+        if (freshnessDays !== null && freshnessDays < 30) qualityScore = Math.min(10, qualityScore + 1);
+      }
+      return {
+        sourceId: 'hackernews', sourceName: 'HackerNews', brand, category,
+        url: resultUrl, exists, discoveredAt: new Date().toISOString(),
+        bytes: null, claims: hits.length, freshnessDays,
+        qualityScore, notes,
+        mode: 'live', rationale: 'Free Algolia HN search API',
+        rawExcerpt: titles[0]?.slice(0, 280) ?? null, error: null
+      };
+    }
+  };
+}
+
 /* ──────────────────────── REGISTRY ──────────────────────── */
 
 const ADAPTERS: Record<SourceId, SourceAdapter> = {
@@ -349,6 +459,7 @@ const ADAPTERS: Record<SourceId, SourceAdapter> = {
   product_hunt: productHuntAdapter(),
   reddit: redditAdapter(),
   linkedin: linkedinAdapter(),
+  hackernews: hackernewsAdapter(),
 };
 
 export function getSourceAdapters(): SourceAdapter[] {

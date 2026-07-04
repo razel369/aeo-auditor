@@ -36,7 +36,7 @@ export function RecentBrandScans({ items }: {
                 <p className="font-display text-xl text-ink" style={{ fontWeight: 580 }}>
                   {a.sourcesPresent}
                 </p>
-                <span className="text-xs text-muted font-data uppercase tracking-eyebrow">cited of 8</span>
+                <span className="text-xs text-muted font-data uppercase tracking-eyebrow">cited of 9</span>
               </div>
             </li>
           ))}

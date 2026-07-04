@@ -37,7 +37,7 @@ export function AuditHero() {
             about you.
           </h1>
           <p className="text-xl text-ink max-w-3xl mb-12 leading-snug">
-            Eight sources. The ones LLMs actually train on. We check whether your
+            Nine sources. The ones LLMs actually train on. We check whether your
             brand is cited on each — and we put an{' '}
             <span className="font-data text-ok" style={{ fontWeight: 500 }}>actionable fix list</span>{' '}
             in front of you.

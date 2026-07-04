@@ -233,7 +233,7 @@ export default function PlaybookPage() {
           </h1>
           <p className="text-ink max-w-2xl leading-relaxed text-lg mb-6">
             These are the live drafts and submission instructions we use to get
-            AEO Auditor itself cited in AI engines. Eight sources, copy-pasteable.
+            AEO Auditor itself cited in AI engines. Nine sources, copy-pasteable.
             Free for you to fork.
           </p>
           <Link
