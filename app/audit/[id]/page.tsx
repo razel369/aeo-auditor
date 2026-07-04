@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { getPersistedReport } from '@/lib/source-audit';
+import { getPersistedReport, getAuditHistoryForBrand, compareAudits } from '@/lib/source-audit';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,6 +83,13 @@ export default async function SourceAuditReportPage({ params }: { params: Promis
   const { id } = await params;
   const report = await getPersistedReport(id).catch(() => null);
   if (!report) notFound();
+
+  // v0.7: load audit history for the same brand, then compute drift vs the
+  // most recent prior audit (if any).
+  const history = await getAuditHistoryForBrand(report.brand, 12);
+  const currentHistory = history.find((h) => h.auditId === report.auditId);
+  const previousHistory = history.find((h) => h.auditId !== report.auditId);
+  const drift = currentHistory && previousHistory ? compareAudits(previousHistory, currentHistory) : null;
 
   const presentCount = report.profiles.filter((p: SourceProfile) => p.exists).length;
   const liveCount = report.profiles.filter((p: SourceProfile) => p.mode === 'live').length;
@@ -165,6 +172,14 @@ export default async function SourceAuditReportPage({ params }: { params: Promis
 
       {/* ENGINE PROBE — what AI engines actually cite today (v0.6) */}
       {report.engine && <EngineProbeSection engine={report.engine} brand={report.brand} />}
+
+      {/* COMPETITORS — share of voice vs known players (v0.7) */}
+      {report.competitors && report.competitors.competitors.length > 0 && (
+        <CompetitorSection competitors={report.competitors} brand={report.brand} />
+      )}
+
+      {/* DRIFT — Day-N vs prior audit for the same brand (v0.7) */}
+      {drift && <DriftSection drift={drift} />}
 
       {/* SOURCE BY SOURCE */}
       <section className="border-b border-rule">
@@ -458,6 +473,216 @@ function EngineProbeSection({
           v0.6 engine probe: Gemini 2.5 Flash with Google Search grounding, free at 500 prompts/day.
           Day-90 engagements re-run this on the same prompts to show lift.
         </p>
+      </div>
+    </section>
+  );
+}
+
+interface CompetitorSighting {
+  name: string;
+  urlCount: number;
+  textMention: boolean;
+  domainsHit: string[];
+}
+
+function CompetitorSection({
+  competitors, brand,
+}: {
+  competitors: {
+    competitors: { name: string }[];
+    sightings: CompetitorSighting[];
+    shareOfVoice: number;
+    totalBrandCitations: number;
+    totalCompetitorCitations: number;
+    totalProbesWithUrls: number;
+  };
+  brand: string;
+}) {
+  const sovPct = Math.round(competitors.shareOfVoice * 100);
+  const visibleSightings = competitors.sightings.filter((s) => s.urlCount > 0 || s.textMention);
+  const allSightings = competitors.sightings;
+  const maxCount = Math.max(1, ...allSightings.map((s) => s.urlCount));
+  return (
+    <section className="border-b border-rule">
+      <div className="max-w-8xl mx-auto px-8 py-20">
+        <div className="grid grid-cols-12 gap-x-6 mb-10">
+          <div className="col-span-12 md:col-span-2"><p className="eyebrow">Competitors</p></div>
+          <div className="col-span-12 md:col-span-10">
+            <h2 className="font-display text-3xl text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
+              Who the engines cite instead of {brand}.
+            </h2>
+            <p className="mt-3 text-base text-muted max-w-3xl">
+              When a buyer asks one of the 10 prompts above, the engine returns URLs and a
+              short answer. We matched each citation against known competitors for this
+              category. <span className="text-ink font-data">Share of voice</span> is the brand's
+              share of all citations (brand + competitors).
+              {visibleSightings.length === 0 && (
+                <span className="block mt-2 text-ok">
+                  No competitor appeared in the cited set this run — either {brand} dominates
+                  the category here, or the engine returned no sources at all.
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-x-6 mb-10">
+          <div className="col-span-12 md:col-span-3 border-r border-rule pr-6">
+            <p className="eyebrow text-muted mb-2">Brand share of voice</p>
+            <p className="font-display text-6xl text-signal leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {sovPct}<span className="text-2xl text-muted">%</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">
+              {competitors.totalBrandCitations} brand cites / {competitors.totalBrandCitations + competitors.totalCompetitorCitations} total
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 border-r border-rule md:px-6">
+            <p className="eyebrow text-muted mb-2">Competitors tracked</p>
+            <p className="font-display text-6xl text-ink leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {competitors.competitors.length}<span className="text-2xl text-muted"> brands</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">Seed list for this category</p>
+          </div>
+          <div className="col-span-12 md:col-span-3 md:px-6">
+            <p className="eyebrow text-muted mb-2">Cited at all</p>
+            <p className="font-display text-6xl text-ink leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {visibleSightings.length}<span className="text-2xl text-muted">/{competitors.competitors.length}</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">
+              competitors appeared in cited URLs or text
+            </p>
+          </div>
+        </div>
+
+        <ul className="border-t border-ink">
+          {allSightings.map((s) => {
+            const widthPct = Math.round((s.urlCount / maxCount) * 100);
+            return (
+              <li key={s.name}
+                  className="grid grid-cols-12 gap-x-6 py-5 border-b border-rule items-baseline">
+                <span className="col-span-12 md:col-span-3 font-display text-xl text-ink"
+                      style={{ fontWeight: 580 }}>{s.name}</span>
+                <span className="col-span-12 md:col-span-6 mb-2 md:mb-0">
+                  <span className="block h-2 bg-rule relative">
+                    <span
+                      className={`absolute inset-y-0 left-0 ${s.urlCount > 0 ? 'bg-signal' : 'bg-rule'}`}
+                      style={{ width: `${widthPct}%` }}
+                    />
+                  </span>
+                  {s.domainsHit.length > 0 && (
+                    <span className="text-[11px] text-muted font-data mt-1 block">
+                      hit domains: {s.domainsHit.slice(0, 4).join(', ')}
+                      {s.domainsHit.length > 4 && ` +${s.domainsHit.length - 4} more`}
+                    </span>
+                  )}
+                </span>
+                <span className="col-span-12 md:col-span-3 md:text-right space-y-1">
+                  <span className="block font-display text-2xl text-ink"
+                        style={{ fontWeight: 580 }}>
+                    {s.urlCount}<span className="text-xs text-muted ml-1">url hits</span>
+                  </span>
+                  {s.textMention && (
+                    <span className="block text-xs uppercase tracking-eyebrow text-signal">
+                      ✓ named in text
+                    </span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+
+        <p className="mt-8 text-xs text-muted font-data max-w-3xl leading-relaxed">
+          v0.7 competitor comparison. Seeded from a category dictionary — for paid engagements
+          we replace this with a custom watchlist of competitors the buyer names, plus we run
+          a Wikipedia-cooccurrence pass to surface up-and-coming players the seed list misses.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function DriftSection({
+  drift,
+}: {
+  drift: {
+    previousAuditId: string;
+    currentAuditId: string;
+    daysBetween: number;
+    coverageDelta: number;
+    sovDelta: number | null;
+    competitorShifts: Array<{ name: string; previous: number; current: number; delta: number }>;
+  };
+}) {
+  const sovDeltaPct = drift.sovDelta !== null ? Math.round(drift.sovDelta * 100) : null;
+  const moveSign = (n: number) => (n > 0 ? '+' : n < 0 ? '' : '±');
+  return (
+    <section className="border-b border-rule bg-paper">
+      <div className="max-w-8xl mx-auto px-8 py-20">
+        <div className="grid grid-cols-12 gap-x-6 mb-10">
+          <div className="col-span-12 md:col-span-2"><p className="eyebrow">Drift</p></div>
+          <div className="col-span-12 md:col-span-10">
+            <h2 className="font-display text-3xl text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
+              {drift.daysBetween} days since the last audit.
+            </h2>
+            <p className="mt-3 text-base text-muted max-w-3xl">
+              Comparing this report against the prior audit for the same brand. Day-90
+              engagements re-run on this cadence to show what the work moved.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-x-6 mb-10">
+          <div className="col-span-12 md:col-span-3 border-r border-rule pr-6">
+            <p className="eyebrow text-muted mb-2">Coverage delta</p>
+            <p className={`font-display text-5xl leading-none ${drift.coverageDelta > 0 ? 'text-ok' : drift.coverageDelta < 0 ? 'text-signal' : 'text-ink'}`}
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {moveSign(drift.coverageDelta)}{drift.coverageDelta}<span className="text-2xl text-muted"> pts</span>
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 border-r border-rule md:px-6">
+            <p className="eyebrow text-muted mb-2">Share-of-voice delta</p>
+            <p className={`font-display text-5xl leading-none ${sovDeltaPct === null ? 'text-muted' : sovDeltaPct > 0 ? 'text-ok' : sovDeltaPct < 0 ? 'text-signal' : 'text-ink'}`}
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {sovDeltaPct === null ? '—' : `${moveSign(sovDeltaPct)}${sovDeltaPct}`}
+              <span className="text-2xl text-muted">{sovDeltaPct === null ? '' : ' pp'}</span>
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 md:px-6">
+            <p className="eyebrow text-muted mb-2">Days between</p>
+            <p className="font-display text-5xl text-ink leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {drift.daysBetween}
+            </p>
+          </div>
+        </div>
+
+        {drift.competitorShifts.filter((s) => s.delta !== 0).length > 0 && (
+          <div className="border-t border-ink pt-6">
+            <p className="eyebrow mb-4">Competitor movement</p>
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t border-rule">
+              {drift.competitorShifts.filter((s) => s.delta !== 0).map((s) => (
+                <li key={s.name}
+                    className="flex items-baseline justify-between gap-4 py-3 border-b border-rule">
+                  <span className="font-display text-base text-ink" style={{ fontWeight: 580 }}>
+                    {s.name}
+                  </span>
+                  <span className="text-sm text-muted font-data">
+                    {s.previous} → {s.current}
+                  </span>
+                  <span className={`text-base font-data ${s.delta > 0 ? 'text-signal' : 'text-ok'}`}>
+                    {s.delta > 0 ? `+${s.delta}` : s.delta}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </section>
   );

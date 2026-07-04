@@ -148,6 +148,17 @@ function bootstrap(c: Client): void {
     CREATE INDEX IF NOT EXISTS idx_audits_scanned ON source_audits(scanned_at DESC);
   `);
 
+  // v0.7: per-audit share-of-voice + competitor sightings JSON.
+  c.execute(`
+    ALTER TABLE source_audits ADD COLUMN sov REAL;
+  `).catch(() => { /* column already exists */ });
+  c.execute(`
+    ALTER TABLE source_audits ADD COLUMN competitor_sightings_json TEXT;
+  `).catch(() => { /* column already exists */ });
+  c.execute(`
+    ALTER TABLE source_audits ADD COLUMN competitor_count INTEGER;
+  `).catch(() => { /* column already exists */ });
+
   // Engine probes — v0.6: 10 buyer-intent prompts per audit, run against
   // Gemini 2.5 Flash with grounding. Stores cited URL set + brand-match flag.
   c.execute(`
@@ -518,6 +529,9 @@ export interface SourceAuditRow {
   actions_json: string;
   summary_by_mode: string;
   scanned_at: string;
+  sov?: number | null;
+  competitor_sightings_json?: string | null;
+  competitor_count?: number | null;
 }
 
 export async function saveSourceAudit(input: {
@@ -529,12 +543,15 @@ export async function saveSourceAudit(input: {
   actionsJson: string;
   summaryByMode: string;
   scannedAt: string;
+  sov?: number | null;
+  competitorSightingsJson?: string | null;
+  competitorCount?: number | null;
 }): Promise<void> {
   const c = getDb();
   await c.execute({
     sql: `INSERT INTO source_audits
-          (audit_id, brand, category, overall_score, profiles_json, actions_json, summary_by_mode, scanned_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          (audit_id, brand, category, overall_score, profiles_json, actions_json, summary_by_mode, scanned_at, sov, competitor_sightings_json, competitor_count)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       input.auditId,
       input.brand.slice(0, 200),
@@ -544,6 +561,9 @@ export async function saveSourceAudit(input: {
       input.actionsJson,
       input.summaryByMode,
       input.scannedAt,
+      input.sov ?? null,
+      input.competitorSightingsJson ?? null,
+      input.competitorCount ?? null,
     ],
   });
 }

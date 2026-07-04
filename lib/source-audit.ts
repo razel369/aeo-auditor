@@ -9,8 +9,9 @@
 import { nanoid } from 'nanoid';
 import { getSourceAdapters, type SourceProfile, type SourceId } from './source-adapters';
 import { buildReport, scoreAudit, actionsFor, type CitationCoverageReport } from './source-scoring';
-import { saveSourceScan, saveSourceAudit, getSourceAuditWithRows, distinctBrandsScanned, listEngineScansForAudit } from './db';
+import { saveSourceScan, saveSourceAudit, getSourceAuditWithRows, distinctBrandsScanned, listEngineScansForAudit, getDb } from './db';
 import { runEngineAudit, type EngineAuditResult } from './engine-audit';
+import { analyzeCompetitors, type CompetitorAnalysis } from './competitor-library';
 
 const CONCURRENCY = 5;
 const REQUEST_TIMEOUT_MS = 12_000; // total scan timeout
@@ -48,6 +49,7 @@ async function scanAll(brand: string, category: string | null): Promise<SourcePr
 export interface SourceAuditResult extends CitationCoverageReport {
   auditId: string;
   engine: EngineAuditResult | null;
+  competitors: CompetitorAnalysis | null;
 }
 
 export async function runSourceAudit(brand: string, category?: string): Promise<SourceAuditResult> {
@@ -101,7 +103,18 @@ export async function runSourceAudit(brand: string, category?: string): Promise<
     }],
   }));
 
-  const report: SourceAuditResult = { ...baseReport, auditId, engine };
+  // v0.7: run competitor analysis on whatever the engine layer produced.
+  // If engine is null or all probes errored, we still return competitors=null
+  // (no data to compare against).
+  const competitors: CompetitorAnalysis | null = engine && engine.probes.length > 0
+    ? analyzeCompetitors({
+        brand,
+        category: category ?? null,
+        probes: engine.probes,
+      })
+    : null;
+
+  const report: SourceAuditResult = { ...baseReport, auditId, engine, competitors };
   await persistReport(report).catch(() => { /* best-effort */ });
   return report;
 }
@@ -138,6 +151,11 @@ export async function persistReport(report: SourceAuditResult): Promise<void> {
       actionsJson: JSON.stringify(report.actions),
       summaryByMode: JSON.stringify(report.summaryByMode),
       scannedAt: report.scannedAt,
+      sov: report.competitors?.shareOfVoice ?? null,
+      competitorSightingsJson: report.competitors
+        ? JSON.stringify(report.competitors.sightings)
+        : null,
+      competitorCount: report.competitors?.competitors.length ?? null,
     });
   } catch { /* continue */ }
 }
@@ -179,6 +197,32 @@ export async function getPersistedReport(auditId: string): Promise<SourceAuditRe
     };
   })();
 
+  // v0.7: hydrate competitors from DB row.
+  const competitors: CompetitorAnalysis | null = (() => {
+    const sightingsJson = row.audit.competitor_sightings_json;
+    if (!sightingsJson) return null;
+    try {
+      const sightings = JSON.parse(sightingsJson);
+      const totalBrandCitations = sightings.length === 0 ? 0 : engine?.brandCitations ?? 0;
+      const totalCompetitorCitations = sightings.reduce(
+        (sum: number, s: any) => sum + (s.urlCount ?? 0),
+        0,
+      );
+      const denom = totalBrandCitations + totalCompetitorCitations;
+      return {
+        competitors: sightings.map((s: any) => ({ name: s.name, domains: [] })),
+        sightings,
+        brandMentionedInProbe: (engine?.brandCitations ?? 0) > 0 || (engine?.brandMentionsInText ?? 0) > 0,
+        shareOfVoice: row.audit.sov ?? (denom === 0 ? 0 : totalBrandCitations / denom),
+        totalBrandCitations,
+        totalCompetitorCitations,
+        totalProbesWithUrls: engine?.promptsWithUrls ?? 0,
+      };
+    } catch {
+      return null;
+    }
+  })();
+
   return {
     auditId: row.audit.audit_id,
     brand: row.audit.brand,
@@ -189,6 +233,7 @@ export async function getPersistedReport(auditId: string): Promise<SourceAuditRe
     actions: row.actions,
     summaryByMode: row.summary,
     engine,
+    competitors,
   };
 }
 
@@ -225,4 +270,106 @@ export async function listRecentSourceAudits(limit = 8): Promise<{
   } catch {
     return [];
   }
+}
+
+/* ──────────────────────── DRIFT DETECTION (v0.7) ──────────────────────── */
+
+export interface AuditHistoryRow {
+  auditId: string;
+  scannedAt: string;
+  overallScore: number;
+  sov: number | null;
+  competitorSightings: any[];
+}
+
+export async function getAuditHistoryForBrand(
+  brand: string,
+  limit = 12,
+): Promise<AuditHistoryRow[]> {
+  try {
+    const c = getDb();
+    const r = await c.execute({
+      sql: `SELECT audit_id, scanned_at, overall_score, sov, competitor_sightings_json
+            FROM source_audits
+            WHERE brand = ?
+            ORDER BY scanned_at DESC
+            LIMIT ?`,
+      args: [brand.slice(0, 200), limit],
+    });
+    const rows = r.rows as unknown as Array<{
+      audit_id: string;
+      scanned_at: string;
+      overall_score: number;
+      sov: number | null;
+      competitor_sightings_json: string | null;
+    }>;
+    return rows.map((row) => {
+      let sightings: any[] = [];
+      try {
+        if (row.competitor_sightings_json) {
+          sightings = JSON.parse(row.competitor_sightings_json);
+        }
+      } catch { /* skip */ }
+      return {
+        auditId: row.audit_id,
+        scannedAt: row.scanned_at,
+        overallScore: row.overall_score ?? 0,
+        sov: row.sov ?? null,
+        competitorSightings: sightings,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+export interface DriftComparison {
+  previousAuditId: string;
+  currentAuditId: string;
+  previousScannedAt: string;
+  currentScannedAt: string;
+  daysBetween: number;
+  coverageDelta: number;       // current.overallScore - previous.overallScore
+  sovDelta: number | null;     // current.sov - previous.sov
+  competitorShifts: Array<{
+    name: string;
+    previous: number;
+    current: number;
+    delta: number;
+  }>;
+}
+
+/**
+ * Compare two audits for the same brand. Returns a structured diff with
+ * coverage delta, share-of-voice delta, and per-competitor sighting deltas.
+ */
+export function compareAudits(previous: AuditHistoryRow, current: AuditHistoryRow): DriftComparison {
+  const prevDate = new Date(previous.scannedAt).getTime();
+  const currDate = new Date(current.scannedAt).getTime();
+  const daysBetween = Math.max(0, Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24)));
+
+  const coverageDelta = current.overallScore - previous.overallScore;
+  const sovDelta = previous.sov !== null && current.sov !== null
+    ? current.sov - previous.sov
+    : null;
+
+  const prevByName = new Map(previous.competitorSightings.map((s) => [s.name, s.urlCount ?? 0]));
+  const currByName = new Map(current.competitorSightings.map((s) => [s.name, s.urlCount ?? 0]));
+  const allNames = new Set<string>([...prevByName.keys(), ...currByName.keys()]);
+  const competitorShifts = Array.from(allNames).map((name) => {
+    const prev = prevByName.get(name) ?? 0;
+    const curr = currByName.get(name) ?? 0;
+    return { name, previous: prev, current: curr, delta: curr - prev };
+  }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+  return {
+    previousAuditId: previous.auditId,
+    currentAuditId: current.auditId,
+    previousScannedAt: previous.scannedAt,
+    currentScannedAt: current.scannedAt,
+    daysBetween,
+    coverageDelta,
+    sovDelta,
+    competitorShifts,
+  };
 }
