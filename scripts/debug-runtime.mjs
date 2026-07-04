@@ -17,7 +17,7 @@ page.on('pageerror', (err) => {
   errors.push(`[pageerror] ${err.message}\n${err.stack ?? ''}`);
 });
 
-const pages = ['/', '/pricing', '/sales', '/about', '/this-does-not-exist-404'];
+const pages = ['/', '/services', '/sales', '/about', '/audit', '/case-study/aeo-auditor', '/this-does-not-exist-404'];
 
 for (const url of pages) {
   errors.length = 0; warnings.length = 0;

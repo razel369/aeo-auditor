@@ -132,13 +132,13 @@ export default function AboutPage() {
               See what AI engines say about your brand →
             </p>
           </Link>
-          <Link href="/pricing" className="block group">
-            <p className="eyebrow mb-3">Start weekly cadence</p>
+          <Link href="/services" className="block group">
+            <p className="eyebrow mb-3">Engage us</p>
             <p
               className="font-display text-3xl text-ink group-hover:text-signal transition-colors"
               style={{ fontWeight: 580 }}
             >
-              $99 setup · $299/mo · cancel anytime →
+              Flat fee. We own the placements. Lift guaranteed by Day 90 →
             </p>
           </Link>
         </div>

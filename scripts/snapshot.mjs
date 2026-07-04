@@ -17,7 +17,7 @@ const page = await context.newPage();
 
 const pages = [
   { name: '01-home', url: '/' },
-  { name: '02-pricing', url: '/pricing' },
+  { name: '02-services', url: '/services' },
   { name: '03-sales', url: '/sales' },
   { name: '04-about', url: '/about' },
   { name: '05-not-found', url: '/this-does-not-exist-404' },

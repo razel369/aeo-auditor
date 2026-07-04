@@ -4,7 +4,7 @@ import { Wordmark } from './Wordmark';
 
 /**
  * Page header. Sits above every page.
- * Rule (hairline) below it. Looks like a newspaper masthead.
+ * Positioning has shifted from "audit tool" to "AI citation agency".
  */
 export function SiteHeader() {
   return (
@@ -13,22 +13,14 @@ export function SiteHeader() {
         <div className="flex items-center gap-10">
           <Wordmark size="md" />
           <span className="hidden md:inline text-xs text-muted italic font-display">
-            The Field Report for AI visibility
+            The AI citation agency
           </span>
         </div>
         <nav className="flex items-center gap-6 text-sm">
-          <Link href="/" className="text-ink hover:text-signal transition-colors">
-            Audit
-          </Link>
-          <Link href="/pricing" className="text-ink hover:text-signal transition-colors">
-            Pricing
-          </Link>
-          <Link href="/sales" className="text-ink hover:text-signal transition-colors">
-            For CMOs
-          </Link>
-          <Link href="/about" className="text-ink hover:text-signal transition-colors">
-            Method
-          </Link>
+          <Link href="/services" className="text-ink hover:text-signal transition-colors font-medium">How we work</Link>
+          <Link href="/audit" className="text-ink hover:text-signal transition-colors">Free audit</Link>
+          <Link href="/case-study/aeo-auditor" className="text-ink hover:text-signal transition-colors">Case study</Link>
+          <Link href="/sales" className="text-ink hover:text-signal transition-colors">For CMOs</Link>
         </nav>
       </div>
     </header>
