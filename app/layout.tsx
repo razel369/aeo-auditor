@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { SiteShell } from '@/components/SiteShell';
 
 export const metadata: Metadata = {
-  title: 'AEO Auditor · The Field Report',
+  title: 'AI citation agency · AEO Auditor',
   description:
-    'AEO is the new SEO. We audit whether AI engines mention your brand — ChatGPT, Perplexity, Claude, Gemini, Google AI Overviews — and ship you a written report.',
+    'We get your brand into the AI answers. Wikipedia, G2, Crunchbase, Reddit, Hacker News, Product Hunt. Six sources, Day-90 lift guarantee in the contract.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
