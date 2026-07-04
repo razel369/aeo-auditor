@@ -21,6 +21,7 @@ export function SiteHeader() {
           <Link href="/audit" className="text-ink hover:text-signal transition-colors">Free audit</Link>
           <Link href="/case-study/aeo-auditor" className="text-ink hover:text-signal transition-colors">Case study</Link>
           <Link href="/sales" className="text-ink hover:text-signal transition-colors">For CMOs</Link>
+          <Link href="/contact" className="text-ink hover:text-signal transition-colors">Contact</Link>
         </nav>
       </div>
     </header>

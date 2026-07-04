@@ -130,6 +130,12 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
               >
                 Every submission we are making — and what stage each one is at.
               </h2>
+              <Link
+                href={`/case-study/${study.slug}/playbook`}
+                className="inline-flex items-center gap-2 mt-6 text-sm text-ink hover:text-signal underline decoration-rule underline-offset-4"
+              >
+                See the live drafts, copy-paste blocks, and submission instructions →
+              </Link>
             </div>
           </div>
 

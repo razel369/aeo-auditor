@@ -190,7 +190,7 @@ export default function ServicesPage() {
                   ))}
                 </ul>
                 <Link
-                  href="/sales"
+                  href="/contact"
                   className={`mt-10 inline-flex items-center justify-center gap-2 px-6 py-3 uppercase tracking-eyebrow text-sm transition-colors ${
                     t.featured
                       ? 'bg-ink text-paper hover:bg-signal'

@@ -192,16 +192,16 @@ export default function SalesPage() {
 
           <div className="pt-12 border-t border-rule mt-12 flex flex-col md:flex-row gap-4">
             <Link
-              href="/audit"
+              href="/contact"
               className="inline-flex items-center justify-center gap-3 px-8 py-4 bg-ink text-paper uppercase tracking-eyebrow text-sm hover:bg-signal transition-colors"
             >
-              Run a free audit <span aria-hidden>→</span>
+              Talk to us <span aria-hidden>→</span>
             </Link>
             <Link
-              href="/services"
+              href="/audit"
               className="inline-flex items-center justify-center gap-3 px-8 py-4 border border-ink text-ink uppercase tracking-eyebrow text-sm hover:bg-ink hover:text-paper transition-colors"
             >
-              See pricing <span aria-hidden>→</span>
+              Run a free audit first <span aria-hidden>→</span>
             </Link>
           </div>
         </div>

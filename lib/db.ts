@@ -93,6 +93,22 @@ function bootstrap(c: Client): void {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Leads — capture from /contact form. v0.4.
+  c.execute(`
+    CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      company TEXT,
+      arr_band TEXT,
+      message TEXT,
+      source TEXT NOT NULL DEFAULT 'contact',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
+  `);
 }
 
 // ─── Public helpers ────────────────────────────────────────────────────
@@ -269,4 +285,54 @@ function isoWeek(d: Date): string {
   }
   const week = 1 + Math.ceil((firstThursday - target.valueOf()) / (7 * 24 * 3600 * 1000));
   return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+// ─── Leads (v0.4) ──────────────────────────────────────────────────────
+
+export interface LeadRow {
+  id: string;
+  name: string;
+  email: string;
+  company: string | null;
+  arr_band: string | null;
+  message: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface LeadInput {
+  name: string;
+  email: string;
+  company?: string;
+  arrBand?: string;
+  message?: string;
+  source?: string;
+}
+
+export async function saveLead(input: LeadInput): Promise<string> {
+  const c = getDb();
+  const id = `lead_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+  await c.execute({
+    sql: `INSERT INTO leads (id, name, email, company, arr_band, message, source)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
+      input.name.slice(0, 120),
+      input.email.slice(0, 200).toLowerCase().trim(),
+      input.company?.slice(0, 200) ?? null,
+      input.arrBand?.slice(0, 60) ?? null,
+      input.message?.slice(0, 2000) ?? null,
+      (input.source ?? 'contact').slice(0, 60),
+    ],
+  });
+  return id;
+}
+
+export async function recentLeads(limit = 20): Promise<LeadRow[]> {
+  const c = getDb();
+  const res = await c.execute({
+    sql: `SELECT * FROM leads ORDER BY created_at DESC LIMIT ?`,
+    args: [limit],
+  });
+  return res.rows as unknown as LeadRow[];
 }

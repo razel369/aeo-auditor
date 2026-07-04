@@ -262,17 +262,17 @@ export default async function HomePage() {
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link
-                  href="/services"
+                  href="/contact"
                   className="inline-flex items-center gap-3 px-8 py-4 bg-paper text-ink uppercase tracking-eyebrow hover:bg-signal hover:text-paper transition-colors"
                 >
-                  See pricing &amp; process
+                  Talk to us
                   <span aria-hidden>→</span>
                 </Link>
                 <Link
                   href="/audit"
                   className="inline-flex items-center gap-3 px-8 py-4 border border-paper text-paper uppercase tracking-eyebrow hover:bg-paper hover:text-ink transition-colors"
                 >
-                  Get a free audit first
+                  Or run a free audit
                 </Link>
               </div>
             </div>
