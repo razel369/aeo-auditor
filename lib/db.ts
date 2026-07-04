@@ -148,6 +148,28 @@ function bootstrap(c: Client): void {
     CREATE INDEX IF NOT EXISTS idx_audits_scanned ON source_audits(scanned_at DESC);
   `);
 
+  // Engine probes — v0.6: 10 buyer-intent prompts per audit, run against
+  // Gemini 2.5 Flash with grounding. Stores cited URL set + brand-match flag.
+  c.execute(`
+    CREATE TABLE IF NOT EXISTS engine_scans (
+      audit_id TEXT NOT NULL,
+      brand TEXT NOT NULL,
+      category TEXT,
+      prompt TEXT NOT NULL,
+      cited_urls_json TEXT NOT NULL,
+      cited_domains_json TEXT NOT NULL,
+      brand_mentioned INTEGER NOT NULL,
+      brand_mentioned_in_text INTEGER NOT NULL,
+      text_excerpt TEXT,
+      error TEXT,
+      duration_ms INTEGER NOT NULL,
+      scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_engines_audit ON engine_scans(audit_id);
+    CREATE INDEX IF NOT EXISTS idx_engines_brand ON engine_scans(brand);
+    CREATE INDEX IF NOT EXISTS idx_engines_scanned ON engine_scans(scanned_at DESC);
+  `);
+
   // Source audit leads — post-audit conversion: someone saw the report and
   // asked for the Day-90 path. Different table from /api/leads because
   // source-audit leads carry brand + score context.
@@ -586,4 +608,67 @@ export async function saveSourceLead(input: SourceLeadInput): Promise<string> {
     ],
   });
   return id;
+}
+
+/* ──────────────────────── ENGINE PROBES (v0.6) ──────────────────────── */
+
+export interface EngineScanInput {
+  auditId: string;
+  brand: string;
+  category: string | null;
+  prompt: string;
+  citedUrls: string[];
+  citedDomains: string[];
+  brandMentioned: boolean;
+  brandMentionedInText: boolean;
+  textExcerpt: string | null;
+  error: string | null;
+  durationMs: number;
+}
+
+export async function saveEngineScan(input: EngineScanInput): Promise<void> {
+  const c = getDb();
+  await c.execute({
+    sql: `INSERT INTO engine_scans
+      (audit_id, brand, category, prompt, cited_urls_json, cited_domains_json,
+       brand_mentioned, brand_mentioned_in_text, text_excerpt, error, duration_ms)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      input.auditId,
+      input.brand.slice(0, 200),
+      input.category?.slice(0, 200) ?? null,
+      input.prompt.slice(0, 600),
+      JSON.stringify(input.citedUrls),
+      JSON.stringify(input.citedDomains),
+      input.brandMentioned ? 1 : 0,
+      input.brandMentionedInText ? 1 : 0,
+      input.textExcerpt?.slice(0, 600) ?? null,
+      input.error?.slice(0, 200) ?? null,
+      input.durationMs,
+    ],
+  });
+}
+
+export interface EngineScanRow {
+  audit_id: string;
+  brand: string;
+  category: string | null;
+  prompt: string;
+  cited_urls_json: string;
+  cited_domains_json: string;
+  brand_mentioned: number;
+  brand_mentioned_in_text: number;
+  text_excerpt: string | null;
+  error: string | null;
+  duration_ms: number;
+  scanned_at: string;
+}
+
+export async function listEngineScansForAudit(auditId: string): Promise<EngineScanRow[]> {
+  const c = getDb();
+  const r = await c.execute({
+    sql: `SELECT * FROM engine_scans WHERE audit_id = ? ORDER BY scanned_at ASC, rowid ASC`,
+    args: [auditId],
+  });
+  return r.rows as unknown as EngineScanRow[];
 }

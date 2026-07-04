@@ -28,8 +28,33 @@ const ROLE_LABEL: Record<ActionItem['engagementRole'], string> = {
   observation: 'Not engineered',
 };
 
+interface EngineProbe {
+  prompt: string;
+  citedUrls: string[];
+  citedDomains: string[];
+  brandMentionedUrl: boolean;
+  brandMentionedText: boolean;
+  textExcerpt: string;
+  error: string | null;
+  durationMs: number;
+}
+interface EngineProbeStripProps {
+  engine: {
+    engineScore: number;
+    brandCitations: number;
+    brandMentionsInText: number;
+    promptsTotal: number;
+    promptsWithUrls: number;
+    uniqueDomainsCited: string[];
+    citationRate: number;
+    probes: EngineProbe[];
+  };
+  brand: string;
+}
+
 interface ReportResult extends CitationCoverageReport {
   auditId: string;
+  engine: EngineProbeStripProps['engine'] | null;
 }
 
 interface Props {
@@ -176,7 +201,9 @@ function ReportView({ report }: { report: ReportResult }) {
                  'Sparse profile. Likely invisible to plain-mode LLMs. High-impact fixes available.'}
               </p>
               <p className="text-sm text-muted font-data">
-                {presentCount}/9 sources · {liveCount}/3 live adapters reachable · scan {new Date(report.scannedAt).toLocaleString()}
+                {presentCount}/9 sources · {liveCount}/3 live adapters reachable
+                {report.engine ? ` · engine score ${report.engine.engineScore}/100` : ''}
+                {' · '}{new Date(report.scannedAt).toLocaleString()}
               </p>
               <ShareLink auditId={report.auditId} />
 
@@ -184,6 +211,9 @@ function ReportView({ report }: { report: ReportResult }) {
           </div>
         </div>
       </section>
+
+      {/* ENGINE PROBE STRIP — what AI engines actually cite today */}
+      {report.engine && <EngineProbeStrip engine={report.engine} brand={report.brand} />}
 
       <section className="border-b border-rule">
         <div className="max-w-8xl mx-auto px-8 py-20">
@@ -366,5 +396,138 @@ function ShareLink({ auditId }: { auditId: string }) {
         Permanent URL. No expiry. Publicly indexable.
       </p>
     </div>
+  );
+}
+
+function EngineProbeStrip({ engine, brand }: EngineProbeStripProps) {
+  const okProbes = engine.probes.filter((p) => !p.error);
+  const errCount = engine.probes.length - okProbes.length;
+  return (
+    <section className="border-b border-rule bg-cream">
+      <div className="max-w-8xl mx-auto px-8 py-20">
+        <div className="grid grid-cols-12 gap-x-6 mb-10">
+          <div className="col-span-12 md:col-span-2">
+            <p className="eyebrow">Engine probe</p>
+          </div>
+          <div className="col-span-12 md:col-span-10">
+            <h2 className="font-display text-3xl text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
+              What the engines cite when buyers ask.
+            </h2>
+            <p className="mt-3 text-base text-muted max-w-3xl">
+              We ran {engine.promptsTotal} buyer-intent prompts through Gemini 2.5 Flash with
+              Google Search grounding (the same index ChatGPT Search, Perplexity, and AI Overviews
+              read from). The score is how often <span className="text-ink font-data">{brand}</span> shows up
+              in the cited source set or in the model's answer.
+              {errCount > 0 && (
+                <span className="block mt-2 text-signal">
+                  {errCount} prompt{errCount > 1 ? 's' : ''} failed this run — re-run to fill them in.
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-x-6 mb-12">
+          <div className="col-span-12 md:col-span-3 border-r border-rule pr-6">
+            <p className="eyebrow text-muted mb-2">Engine score</p>
+            <p className="font-display text-6xl text-signal leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {engine.engineScore}<span className="text-2xl text-muted">/100</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">
+              {engine.brandCitations}/{engine.promptsTotal} prompts cite {brand}
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 border-r border-rule md:px-6">
+            <p className="eyebrow text-muted mb-2">Citation rate</p>
+            <p className="font-display text-6xl text-ink leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {Math.round(engine.citationRate * 100)}<span className="text-2xl text-muted">%</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">
+              {engine.brandMentionsInText} text-only mention{engine.brandMentionsInText === 1 ? '' : 's'}
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 border-r border-rule md:px-6">
+            <p className="eyebrow text-muted mb-2">Cited domains</p>
+            <p className="font-display text-6xl text-ink leading-none"
+               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
+              {engine.uniqueDomainsCited.length}<span className="text-2xl text-muted"> total</span>
+            </p>
+            <p className="text-xs text-muted font-data mt-2">
+              {engine.promptsWithUrls}/{engine.promptsTotal} prompts returned sources
+            </p>
+          </div>
+          <div className="col-span-12 md:col-span-3 md:pl-6">
+            <p className="eyebrow text-muted mb-2">Engine</p>
+            <p className="font-display text-2xl text-ink leading-tight mt-3"
+               style={{ fontWeight: 580 }}>
+              Gemini 2.5 Flash
+            </p>
+            <p className="font-data text-xs text-muted mt-1">+ Google Search grounding</p>
+            <p className="font-data text-[10px] text-muted mt-1">Free tier · 500 prompts/day</p>
+          </div>
+        </div>
+
+        <ol className="border-t border-ink">
+          {engine.probes.map((p, i) => (
+            <li key={i}
+                className="grid grid-cols-12 gap-x-6 py-6 border-b border-rule items-start">
+              <div className="col-span-12 md:col-span-1">
+                <p className="font-display text-lg text-muted"
+                   style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}>
+                  {String(i + 1).padStart(2, '0')}
+                </p>
+              </div>
+              <div className="col-span-12 md:col-span-7">
+                <p className="font-display text-base text-ink mb-2"
+                   style={{ fontWeight: 580 }}>{p.prompt}</p>
+                {p.error ? (
+                  <p className="text-xs text-signal font-data">Error: {p.error}</p>
+                ) : p.citedUrls.length === 0 ? (
+                  <p className="text-xs text-muted font-data">No sources cited for this prompt.</p>
+                ) : (
+                  <div>
+                    <p className="text-xs text-muted font-data mb-1">
+                      {p.citedUrls.length} URL{p.citedUrls.length === 1 ? '' : 's'} cited:
+                    </p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      {p.citedDomains.slice(0, 6).map((d, j) => (
+                        <span key={j} className="text-xs text-ink font-data">{d}</span>
+                      ))}
+                      {p.citedDomains.length > 6 && (
+                        <span className="text-xs text-muted font-data">+{p.citedDomains.length - 6} more</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="col-span-12 md:col-span-4 md:text-right space-y-1.5">
+                {p.brandMentionedUrl ? (
+                  <p className="text-xs uppercase tracking-eyebrow text-ok">✓ cited (URL)</p>
+                ) : (
+                  <p className="text-xs uppercase tracking-eyebrow text-muted">○ not cited (URL)</p>
+                )}
+                {p.brandMentionedText ? (
+                  <p className="text-xs uppercase tracking-eyebrow text-signal">✓ named (text)</p>
+                ) : (
+                  <p className="text-xs uppercase tracking-eyebrow text-muted">○ not named (text)</p>
+                )}
+                <p className="text-[10px] text-muted font-data">{p.durationMs}ms</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <p className="mt-8 text-xs text-muted font-data max-w-3xl leading-relaxed">
+          v0.6 engine probe: Gemini 2.5 Flash with Google Search grounding, free at 500 prompts/day.
+          We treat this as a proxy for ChatGPT Search, Perplexity, and AI Overviews — they all read
+          from the same Google index. Day-90 engagements re-run this on the same prompts to show
+          lift. For higher-accuracy multi-engine coverage, we layer Perplexity Sonar + OpenRouter
+          on paid engagements.
+        </p>
+      </div>
+    </section>
   );
 }

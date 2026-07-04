@@ -1,12 +1,16 @@
 /**
- * Run a coverage audit. Scans all 8 sources in parallel (with concurrency cap),
+ * Run a coverage audit. Scans all 9 sources in parallel (with concurrency cap),
  * computes the score, persists to Turso (best-effort), and returns the report.
+ *
+ * v0.6: also runs a parallel engine audit (Gemini 2.5 Flash + Google Search
+ * Grounding, free at 500 RPD) and attaches it to the report.
  */
 
 import { nanoid } from 'nanoid';
 import { getSourceAdapters, type SourceProfile, type SourceId } from './source-adapters';
 import { buildReport, scoreAudit, actionsFor, type CitationCoverageReport } from './source-scoring';
-import { saveSourceScan, saveSourceAudit, getSourceAuditWithRows, distinctBrandsScanned } from './db';
+import { saveSourceScan, saveSourceAudit, getSourceAuditWithRows, distinctBrandsScanned, listEngineScansForAudit } from './db';
+import { runEngineAudit, type EngineAuditResult } from './engine-audit';
 
 const CONCURRENCY = 5;
 const REQUEST_TIMEOUT_MS = 12_000; // total scan timeout
@@ -43,6 +47,7 @@ async function scanAll(brand: string, category: string | null): Promise<SourcePr
 
 export interface SourceAuditResult extends CitationCoverageReport {
   auditId: string;
+  engine: EngineAuditResult | null;
 }
 
 export async function runSourceAudit(brand: string, category?: string): Promise<SourceAuditResult> {
@@ -52,8 +57,6 @@ export async function runSourceAudit(brand: string, category?: string): Promise<
       setTimeout(() => reject(new Error('Scan timed out after 12s')), REQUEST_TIMEOUT_MS),
     ),
   ]).catch((e): SourceProfile[] => {
-    // Fall back to stub profiles if the whole scan times out so we still render
-    // the report page rather than a hard error.
     return getSourceAdapters().map((a) => ({
       sourceId: a.id,
       sourceName: a.name,
@@ -69,7 +72,36 @@ export async function runSourceAudit(brand: string, category?: string): Promise<
   });
   const baseReport = buildReport(profiles, brand, category ?? null);
   const auditId = nanoid(10);
-  const report: SourceAuditResult = { ...baseReport, auditId };
+
+  // v0.6: kick off the engine probe in parallel. If it errors or the key
+  // is missing, we still return the source-coverage report with engine=null
+  // so the UI can show "engine probes not configured".
+  const apiKey = process.env.GEMINI_API_KEY;
+  const engine = await runEngineAudit({
+    auditId,
+    brand,
+    category: category ?? null,
+    apiKey,
+  }).catch((e): EngineAuditResult | null => ({
+    auditId,
+    brand,
+    category: category ?? null,
+    scannedAt: new Date().toISOString(),
+    promptsTotal: 0,
+    promptsWithUrls: 0,
+    brandCitations: 0,
+    brandMentionsInText: 0,
+    uniqueDomainsCited: [],
+    citationRate: 0,
+    engineScore: 0,
+    probes: [{
+      prompt: '(engine audit error)', citedUrls: [], citedDomains: [],
+      brandMentionedUrl: false, brandMentionedText: false,
+      textExcerpt: '', error: String((e as Error).message ?? e), durationMs: 0,
+    }],
+  }));
+
+  const report: SourceAuditResult = { ...baseReport, auditId, engine };
   await persistReport(report).catch(() => { /* best-effort */ });
   return report;
 }
@@ -113,6 +145,40 @@ export async function persistReport(report: SourceAuditResult): Promise<void> {
 export async function getPersistedReport(auditId: string): Promise<SourceAuditResult | null> {
   const row = await getSourceAuditWithRows(auditId);
   if (!row) return null;
+
+  // v0.6: hydrate engine probes from DB.
+  const engineRows = await listEngineScansForAudit(auditId).catch(() => []);
+  const engine: EngineAuditResult | null = engineRows.length === 0 ? null : (() => {
+    const probes = engineRows.map((r) => ({
+      prompt: r.prompt,
+      citedUrls: JSON.parse(r.cited_urls_json) as string[],
+      citedDomains: JSON.parse(r.cited_domains_json) as string[],
+      brandMentionedUrl: r.brand_mentioned === 1,
+      brandMentionedText: r.brand_mentioned_in_text === 1,
+      textExcerpt: r.text_excerpt ?? '',
+      error: r.error,
+      durationMs: r.duration_ms,
+    }));
+    const brandCitations = probes.filter((p) => p.brandMentionedUrl).length;
+    const brandMentionsInText = probes.filter((p) => p.brandMentionedText).length;
+    const promptsWithUrls = probes.filter((p) => p.citedUrls.length > 0).length;
+    const uniqueDomainsCited = Array.from(new Set(probes.flatMap((p) => p.citedDomains)));
+    return {
+      auditId,
+      brand: row.audit.brand,
+      category: row.audit.category,
+      scannedAt: row.audit.scanned_at,
+      promptsTotal: probes.length,
+      promptsWithUrls,
+      brandCitations,
+      brandMentionsInText,
+      uniqueDomainsCited,
+      citationRate: probes.length ? brandCitations / probes.length : 0,
+      engineScore: Math.min(100, brandCitations * 7 + brandMentionsInText * 3),
+      probes,
+    };
+  })();
+
   return {
     auditId: row.audit.audit_id,
     brand: row.audit.brand,
@@ -122,6 +188,7 @@ export async function getPersistedReport(auditId: string): Promise<SourceAuditRe
     profiles: row.profiles,
     actions: row.actions,
     summaryByMode: row.summary,
+    engine,
   };
 }
 
