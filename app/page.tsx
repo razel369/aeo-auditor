@@ -1,121 +1,273 @@
 import Link from 'next/link';
 import { getDb } from '@/lib/db';
 import { listRecentAudits } from '@/lib/audits';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
+import { Stat } from '@/components/Number';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   let recent: Awaited<ReturnType<typeof listRecentAudits>> = [];
   try {
-    recent = listRecentAudits(getDb(), 6);
-  } catch {
-    // db not initialized yet — fine on cold start
-  }
+    recent = listRecentAudits(getDb(), 8);
+  } catch {}
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-16">
-      <header className="mb-14">
-        <div className="inline-flex items-center gap-2 text-xs text-dim mb-6 font-mono">
-          <span className="w-2 h-2 rounded-full bg-accent" /> AEO AUDITOR · v0.1
-        </div>
-        <h1 className="text-5xl font-semibold tracking-tight leading-tight mb-5">
-          Find out if AI engines{' '}
-          <span className="bg-gradient-to-r from-accent to-accent2 bg-clip-text text-transparent">
-            mention your brand.
-          </span>
-        </h1>
-        <p className="text-xl text-dim max-w-2xl leading-relaxed">
-          AEO is the new SEO. Type your brand, we run 12 buyer-intent queries across 5 AI
-          answer engines, and tell you where you show up — and where you don&apos;t.
-        </p>
-      </header>
+    <main>
+      <SiteHeader />
 
-      <form action="/audit/new" method="get" className="mb-12">
-        <div className="flex gap-3 items-stretch">
-          <input
-            name="brand"
-            placeholder="Try: Linear, Stripe, Notion, Vercel…"
-            required
-            className="flex-1 px-5 py-4 rounded-lg bg-panel border border-border text-text placeholder-dim focus:outline-none focus:border-accent text-lg"
-          />
-          <button
-            type="submit"
-            className="px-7 py-4 rounded-lg bg-accent text-bg font-semibold hover:opacity-90 transition-opacity"
-          >
-            Run audit →
-          </button>
-        </div>
-        <p className="text-sm text-dim mt-3">
-          Free, no signup. Audit takes ~90 seconds.
-        </p>
-      </form>
+      {/* ─── HERO ─────────────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 pt-20 pb-24">
+          <div className="grid grid-cols-12 gap-x-6">
+            {/* Left 7 cols: hero */}
+            <div className="col-span-12 md:col-span-7">
+              <p className="eyebrow mb-8">Issue 01 · The Field Report</p>
+              <h1
+                className="font-display text-display mb-8 rise-in"
+                style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+              >
+                Does ChatGPT <span className="italic">actually</span> recommend you?
+              </h1>
+              <p className="text-lg text-ink max-w-xl leading-relaxed mb-10">
+                We run twelve of the questions a buyer would type into an AI engine —
+                across five engines — and write up the answers. Where you appear.
+                Where you don&apos;t. Who does, instead.
+              </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-14">
-        <Stat label="AI engines queried" value="5" sub="ChatGPT, Perplexity, Claude, Gemini, Google AI Overviews" />
-        <Stat label="Queries per audit" value="12" sub="Buyer-intent queries auto-generated from your brand" />
-        <Stat label="Average audit time" value="~90s" sub="Real scraping, real scoring, real report" />
-      </div>
+              <form action="/audit/new" method="get" className="flex gap-0 items-stretch max-w-xl border border-ink">
+                <input
+                  name="brand"
+                  placeholder="A brand name. Try &ldquo;Linear&rdquo;."
+                  required
+                  className="flex-1 px-5 py-4 bg-paper text-ink placeholder-muted text-base focus:bg-cream transition-colors"
+                />
+                <button
+                  type="submit"
+                  className="px-7 py-4 bg-ink text-paper font-medium hover:bg-signal transition-colors text-sm uppercase tracking-eyebrow"
+                >
+                  Run audit
+                </button>
+              </form>
+              <p className="text-xs text-muted mt-3 font-data">
+                ~90 seconds · No signup · Stored in a real ledger
+              </p>
+            </div>
 
-      <section className="mb-14">
-        <h2 className="text-sm text-dim uppercase tracking-wider mb-4 font-mono">Why now</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <Fact
-            headline="60%+ of Google searches end in zero clicks."
-            source="SparkToro / Similarweb 2024"
-          />
-          <Fact
-            headline="Gartner: 25% of organic search will move to AI chatbots by 2026."
-            source="Gartner 2024 forecast"
-          />
-          <Fact
-            headline="AI Overviews now show on 15% of queries, up from 6% last year."
-            source="Search Engine Land, Q1 2026"
-          />
+            {/* Right 5 cols: masthead-style metadata */}
+            <aside className="col-span-12 md:col-span-5 md:pl-12 mt-12 md:mt-0 border-l border-rule md:border-l md:border-rule md:pl-8">
+              <div className="space-y-10">
+                <div>
+                  <p className="eyebrow mb-3">Compiled by</p>
+                  <p className="font-display text-xl leading-tight">
+                    AEO Auditor{' '}
+                    <span className="text-muted italic text-base">· field desk</span>
+                  </p>
+                </div>
+
+                <div>
+                  <p className="eyebrow mb-3">This issue covers</p>
+                  <ul className="space-y-1.5 text-sm">
+                    <li>
+                      <span className="font-data text-muted mr-2">01</span>
+                      Five engine audits
+                    </li>
+                    <li>
+                      <span className="font-data text-muted mr-2">02</span>
+                      Twelve buyer-intent queries
+                    </li>
+                    <li>
+                      <span className="font-data text-muted mr-2">03</span>
+                      Mention ledger &amp; citations
+                    </li>
+                    <li>
+                      <span className="font-data text-muted mr-2">04</span>
+                      Six fix-it recommendations
+                    </li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="eyebrow mb-3">For</p>
+                  <p className="text-sm leading-relaxed">
+                    CMOs and growth leads at $1M&ndash;$50M ARR B2B SaaS companies who
+                    suspect they are not being cited by AI engines.
+                  </p>
+                </div>
+              </div>
+            </aside>
+          </div>
         </div>
       </section>
 
-      {recent.length > 0 && (
-        <section>
-          <h2 className="text-sm text-dim uppercase tracking-wider mb-4 font-mono">Recent audits</h2>
-          <div className="space-y-2">
-            {recent.map((a) => (
-              <Link
-                key={a.id}
-                href={`/audit/${a.id}`}
-                className="block px-4 py-3 rounded-lg bg-panel border border-border hover:border-accent transition-colors"
+      {/* ─── STATS BAR ──────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-14">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-6">
+            <Stat value="5" label="AI engines" />
+            <Stat value="12" label="Queries per audit" />
+            <Stat value="60" label="Answers scored" />
+            <Stat value="~90s" label="Run time" />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── THE PITCH PARAGRAPH ────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-20">
+          <div className="grid grid-cols-12 gap-x-6">
+            <div className="col-span-12 md:col-span-2 mb-6 md:mb-0">
+              <p className="eyebrow">Why this, why now</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <p
+                className="font-display text-headline leading-snug text-ink max-w-3xl"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60, 'SOFT' 30" }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{a.brand}</span>
-                  <span className="text-xs text-dim font-mono">{new Date(a.created_at).toLocaleString()}</span>
+                SEO ranked you on a list of ten blue links. AI ranks you in a
+                paragraph &mdash; or not at all. The traffic you lost to zero-click
+                searches last year is the traffic ChatGPT ate this year. The CMO who
+                wakes up to this in&nbsp;Q4 calls us in&nbsp;Q1.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 pt-10 border-t border-rule text-sm">
+                <div>
+                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
+                    60<span className="text-muted text-lg">%</span>
+                  </p>
+                  <p className="text-ink">
+                    of Google searches ended in a zero-click answer in 2024.
+                  </p>
+                  <p className="text-xs text-muted mt-2 font-data">SparkToro · Similarweb</p>
                 </div>
-              </Link>
-            ))}
+                <div>
+                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
+                    25<span className="text-muted text-lg">%</span>
+                  </p>
+                  <p className="text-ink">
+                    of organic search will move to AI chatbots by 2026.
+                  </p>
+                  <p className="text-xs text-muted mt-2 font-data">Gartner, 2024 forecast</p>
+                </div>
+                <div>
+                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
+                    15<span className="text-muted text-lg">%</span>
+                  </p>
+                  <p className="text-ink">
+                    of Google queries now show AI Overviews (up from 6% YoY).
+                  </p>
+                  <p className="text-xs text-muted mt-2 font-data">Search Engine Land, Q1 2026</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── RECENT AUDITS ──────────────────────────────────── */}
+      {recent.length > 0 && (
+        <section className="border-b border-rule">
+          <div className="max-w-8xl mx-auto px-8 py-16">
+            <div className="flex items-baseline justify-between mb-8">
+              <h2 className="font-display text-headline text-ink" style={{ fontWeight: 500 }}>
+                Past audits, on the record.
+              </h2>
+              <span className="eyebrow">{recent.length} entries</span>
+            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-y border-ink text-left">
+                  <th className="eyebrow py-3 pr-4 w-32">Date</th>
+                  <th className="eyebrow py-3 pr-4">Brand</th>
+                  <th className="eyebrow py-3 pr-4">Category</th>
+                  <th className="eyebrow py-3 pr-4 text-right">Mention rate</th>
+                  <th className="eyebrow py-3 pr-0 text-right w-32">Open →</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.map((a) => (
+                  <tr key={a.id} className="border-b border-rule hover:bg-cream transition-colors">
+                    <td className="py-3 pr-4 font-data text-xs text-muted">
+                      {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
+                    </td>
+                    <td className="py-3 pr-4 font-display text-lg" style={{ fontWeight: 500 }}>
+                      <Link href={`/audit/${a.id}`} className="hover:text-signal transition-colors">
+                        {a.brand}
+                      </Link>
+                    </td>
+                    <td className="py-3 pr-4 text-ink">{a.category}</td>
+                    <td className="py-3 pr-4 font-data text-right">
+                      {Math.round(a.mentionRate * 100)}%
+                    </td>
+                    <td className="py-3 pr-0 text-right">
+                      <Link
+                        href={`/audit/${a.id}`}
+                        className="inline-flex items-center text-muted hover:text-signal text-xs"
+                      >
+                        Read audit →
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
 
-      <footer className="mt-20 pt-8 border-t border-border text-xs text-dim">
-        AEO Auditor · Built by someone who thinks SEO is dying. · v0.1 — engines currently simulated for legal/ToS reasons; real adapters plug in via env vars.
-      </footer>
+      {/* ─── CTA ─────────────────────────────────────────────── */}
+      <section>
+        <div className="max-w-8xl mx-auto px-8 py-24">
+          <div className="grid grid-cols-12 gap-x-6">
+            <div className="col-span-12 md:col-span-7">
+              <p className="eyebrow mb-6">An invitation</p>
+              <h2
+                className="font-display text-headline mb-6"
+                style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144" }}
+              >
+                Run one audit. <span className="italic">It is free and it lasts ninety seconds.</span>
+              </h2>
+              <p className="text-lg text-ink max-w-xl mb-10">
+                Then if you want it delivered every Monday to your CMO inbox, with
+                a competitor watchlist, that is $99 to set up and $299 a month.
+                You can read about why on the pricing page.
+              </p>
+              <Link
+                href="/?demo=1"
+                className="inline-flex items-center gap-3 px-8 py-4 bg-ink text-paper uppercase tracking-eyebrow hover:bg-signal transition-colors"
+              >
+                Run an audit
+                <span aria-hidden>→</span>
+              </Link>
+            </div>
+            <aside className="col-span-12 md:col-span-4 md:col-start-9 mt-12 md:mt-0 md:pl-8 border-l border-rule">
+              <p className="eyebrow mb-4">The numbers, briefly.</p>
+              <ul className="space-y-4 text-sm">
+                <li>
+                  <span className="font-display text-2xl text-ink mr-3" style={{ fontWeight: 580 }}>
+                    $99
+                  </span>
+                  <span className="text-muted">to set up the weekly cadence</span>
+                </li>
+                <li>
+                  <span className="font-display text-2xl text-ink mr-3" style={{ fontWeight: 580 }}>
+                    $299
+                  </span>
+                  <span className="text-muted">a month after that</span>
+                </li>
+                <li>
+                  <span className="font-display text-2xl text-ink mr-3" style={{ fontWeight: 580 }}>
+                    52
+                  </span>
+                  <span className="text-muted">weekly audits a year</span>
+                </li>
+              </ul>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter />
     </main>
-  );
-}
-
-function Stat({ label, value, sub }: { label: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-lg bg-panel border border-border p-5">
-      <div className="text-xs text-dim uppercase tracking-wider mb-2 font-mono">{label}</div>
-      <div className="text-3xl font-semibold mb-1">{value}</div>
-      <div className="text-sm text-dim">{sub}</div>
-    </div>
-  );
-}
-
-function Fact({ headline, source }: { headline: string; source: string }) {
-  return (
-    <div className="rounded-lg bg-panel border border-border p-5">
-      <p className="text-text mb-2 leading-relaxed">&ldquo;{headline}&rdquo;</p>
-      <p className="text-xs text-dim font-mono">— {source}</p>
-    </div>
   );
 }

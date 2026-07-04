@@ -3,6 +3,10 @@ import { notFound } from 'next/navigation';
 import { getDb } from '@/lib/db';
 import { getAudit } from '@/lib/audits';
 import type { EngineId } from '@/lib/engines';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
+import { Ledger } from '@/components/Ledger';
+import { Footnote, FootnoteBlock } from '@/components/Footnote';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,209 +26,347 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
   if (!report) notFound();
 
   const sovEntries = Object.entries(report.shareOfVoice).sort((a, b) => b[1] - a[1]);
-  const topCompetitors = sovEntries.filter(([b]) => b.toLowerCase() !== report.brand.toLowerCase()).slice(0, 6);
+  const topCompetitors = sovEntries
+    .filter(([b]) => b.toLowerCase() !== report.brand.toLowerCase())
+    .slice(0, 7);
+  const brandSOV = (report.shareOfVoice[report.brand] ?? 0) * 100;
+
+  const dateStamp = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const fileNo = `AEO-${id.slice(0, 4).toUpperCase()}`;
+
+  // Footnotes
+  const footnotes = [
+    {
+      index: 1,
+      text: 'Mention rate: percentage of AI answers that name the brand. Computed over 60 responses (12 queries × 5 engines).',
+    },
+    {
+      index: 2,
+      text: 'Average position: mean rank at which the brand appears in lists in which it is mentioned. 1 = first.',
+    },
+    {
+      index: 3,
+      text: 'Share of voice: percentage of all brand-name occurrences across all answers attributable to the target brand.',
+    },
+    {
+      index: 4,
+      text: 'This v0.1 build uses deterministic simulated engines seeded by brand name. Production mode swaps in real adapters via ENGINE_MODE=production.',
+    },
+  ];
+
+  // Tone for the verdict line on top
+  const verdictTone =
+    report.mentionRate >= 0.7 ? 'ok' : report.mentionRate >= 0.4 ? 'signal' : 'signal';
+  const verdictText =
+    report.mentionRate >= 0.7
+      ? 'AI engines cite this brand often.'
+      : report.mentionRate >= 0.4
+        ? 'Mixed signals across engines.'
+        : 'AI engines rarely mention this brand.';
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-12">
-      <header className="mb-10">
-        <Link href="/" className="text-xs text-dim hover:text-text font-mono">← AEO AUDITOR</Link>
-        <h1 className="text-4xl font-semibold mt-4 mb-2">
-          Audit for <span className="text-accent">{report.brand}</span>
-        </h1>
-        <p className="text-dim">
-          Category: <span className="text-text">{report.category}</span> · {report.queries.length} queries × {ENGINE_ORDER.length} engines ={' '}
-          {report.answers.length} answers scored
-        </p>
-      </header>
+    <main>
+      <SiteHeader />
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
-        <BigStat
-          label="Mention rate"
-          value={`${(report.mentionRate * 100).toFixed(0)}%`}
-          tone={report.mentionRate >= 0.7 ? 'ok' : report.mentionRate >= 0.4 ? 'warn' : 'err'}
-          sub="of all AI answers mention your brand"
-        />
-        <BigStat
-          label="Average position"
-          value={report.averagePosition > 0 ? `#${report.averagePosition.toFixed(1)}` : '—'}
-          tone={report.averagePosition > 0 && report.averagePosition <= 3 ? 'ok' : 'warn'}
-          sub="1 = first brand mentioned"
-        />
-        <BigStat
-          label="Share of voice"
-          value={`${((report.shareOfVoice[report.brand] ?? 0) * 100).toFixed(0)}%`}
-          tone={report.shareOfVoice[report.brand] && report.shareOfVoice[report.brand] > 0.2 ? 'ok' : 'warn'}
-          sub={`of total brand mentions`}
-        />
-        <BigStat
-          label="Engines that mentioned you"
-          value={`${ENGINE_ORDER.filter((e) => report.perEngineMentionRate[e] > 0).length} / ${ENGINE_ORDER.length}`}
-          tone="text"
-          sub=""
-        />
-      </section>
-
-      <section className="mb-10">
-        <h2 className="text-sm uppercase tracking-wider text-dim font-mono mb-4">Per-engine breakdown</h2>
-        <div className="bg-panel border border-border rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-panel2 text-dim text-xs uppercase tracking-wider">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium">Engine</th>
-                <th className="text-left px-4 py-3 font-medium">Mention rate</th>
-                <th className="text-left px-4 py-3 font-medium">Avg position</th>
-                <th className="text-left px-4 py-3 font-medium">Verdict</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ENGINE_ORDER.map((e) => {
-                const r = report.perEngineMentionRate[e];
-                const p = report.perEngineAvgPosition[e];
-                const verdict = r === 0 ? 'not mentioned' : r < 0.4 ? 'rare' : r < 0.7 ? 'sometimes' : 'often';
-                return (
-                  <tr key={e} className="border-t border-border">
-                    <td className="px-4 py-3 font-medium">{ENGINE_NAMES[e]}</td>
-                    <td className="px-4 py-3">
-                      <Bar value={r} />
-                      <span className="ml-2 text-xs text-dim">{(r * 100).toFixed(0)}%</span>
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs">{p > 0 ? `#${p.toFixed(1)}` : '—'}</td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs ${r >= 0.7 ? 'text-ok' : r >= 0.4 ? 'text-warn' : 'text-err'}`}>{verdict}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-dim font-mono mb-4">Share of voice</h2>
-          <div className="bg-panel border border-border rounded-lg p-5">
-            {sovEntries.slice(0, 7).map(([brand, share]) => (
-              <div key={brand} className="mb-3 last:mb-0">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className={brand.toLowerCase() === report.brand.toLowerCase() ? 'text-accent font-medium' : 'text-text'}>
-                    {brand}
-                  </span>
-                  <span className="text-dim font-mono text-xs">{(share * 100).toFixed(1)}%</span>
-                </div>
-                <div className="h-2 bg-panel2 rounded overflow-hidden">
-                  <div
-                    className={`h-full ${brand.toLowerCase() === report.brand.toLowerCase() ? 'bg-accent' : 'bg-dim/40'}`}
-                    style={{ width: `${share * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+      {/* ─── DOC HEADER: like a magazine cover strip ────────────── */}
+      <section className="border-b border-ink">
+        <div className="max-w-8xl mx-auto px-8 py-10">
+          <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-xs font-data text-muted uppercase tracking-eyebrow">
+            <span>File {fileNo}</span>
+            <span>·</span>
+            <span>{dateStamp}</span>
+            <span>·</span>
+            <span>{report.queries.length} queries</span>
+            <span>·</span>
+            <span>{report.answers.length} answers</span>
+            <span className="ml-auto hidden md:inline">— end of masthead —</span>
           </div>
-        </div>
-
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-dim font-mono mb-4">Top cited sources</h2>
-          <div className="bg-panel border border-border rounded-lg p-5">
-            {report.topSources.length === 0 ? (
-              <p className="text-sm text-dim">No sources cited yet.</p>
-            ) : (
-              <ul className="text-sm space-y-2">
-                {report.topSources.map((s) => (
-                  <li key={s} className="font-mono text-xs text-text truncate">
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            )}
+          <div className="mt-6">
+            <h1 className="font-display text-display text-ink" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144" }}>
+              {report.brand}.
+            </h1>
+            <p className="text-lg text-ink mt-2 max-w-2xl">
+              Category: <span className="font-display italic" style={{ fontWeight: 500 }}>{report.category}</span>. Compiled against {ENGINE_NAMES.chatgpt}, {ENGINE_NAMES.perplexity}, {ENGINE_NAMES.claude}, {ENGINE_NAMES.gemini}, and {ENGINE_NAMES.google_ai}.
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-sm uppercase tracking-wider text-dim font-mono mb-4">Recommendations</h2>
-        <div className="space-y-3">
-          {report.recommendations.map((r, i) => (
-            <div key={i} className="bg-panel border border-border rounded-lg p-5">
-              <div className="flex items-start justify-between gap-4 mb-2">
-                <h3 className="text-text font-medium">{r.title}</h3>
-                <span className={`text-xs font-mono px-2 py-1 rounded ${r.effort === 'low' ? 'bg-ok/10 text-ok' : r.effort === 'medium' ? 'bg-warn/10 text-warn' : 'bg-err/10 text-err'}`}>
-                  {r.effort} effort
-                </span>
-              </div>
-              <p className="text-sm text-dim leading-relaxed">{r.body}</p>
+      {/* ─── VERDICT BAND ──────────────────────────────────────── */}
+      <section className={`border-b border-rule ${verdictTone === 'ok' ? 'bg-[#D5E1D5]' : ''}`}>
+        <div className="max-w-8xl mx-auto px-8 py-14">
+          <p className="eyebrow mb-4">The verdict</p>
+          <p
+            className="font-display text-headline text-ink max-w-4xl mb-10"
+            style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+          >
+            <span className={verdictTone === 'ok' ? 'text-ok' : 'text-signal'}>∎</span> {verdictText}
+          </p>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+            <div>
+              <p className="eyebrow mb-2">Mention rate <Footnote index={1} /></p>
+              <p className={`font-display text-7xl leading-none ${verdictTone === 'ok' ? 'text-ok' : 'text-signal'}`} style={{ fontWeight: 580 }}>
+                {Math.round(report.mentionRate * 100)}<span className="text-3xl text-muted">%</span>
+              </p>
             </div>
-          ))}
+            <div>
+              <p className="eyebrow mb-2">Avg position <Footnote index={2} /></p>
+              <p className="font-display text-7xl leading-none text-ink" style={{ fontWeight: 580 }}>
+                {report.averagePosition > 0 ? `#${report.averagePosition.toFixed(1)}` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="eyebrow mb-2">Share of voice <Footnote index={3} /></p>
+              <p className="font-display text-7xl leading-none text-ink" style={{ fontWeight: 580 }}>
+                {brandSOV > 0 ? brandSOV.toFixed(0) : '0'}
+                <span className="text-3xl text-muted">%</span>
+              </p>
+            </div>
+            <div>
+              <p className="eyebrow mb-2">Engine reach</p>
+              <p className="font-display text-7xl leading-none text-ink" style={{ fontWeight: 580 }}>
+                {ENGINE_ORDER.filter((e) => report.perEngineMentionRate[e] > 0).length}
+                <span className="text-3xl text-muted">/{ENGINE_ORDER.length}</span>
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-sm uppercase tracking-wider text-dim font-mono mb-4">Sample answers</h2>
-        <div className="space-y-3">
-          {report.answers.slice(0, 4).map((a, i) => (
-            <details key={i} className="bg-panel border border-border rounded-lg">
-              <summary className="px-4 py-3 cursor-pointer flex items-center justify-between gap-3">
-                <span className="text-sm">
-                  <span className="text-dim font-mono text-xs">{ENGINE_NAMES[a.engine]}</span>{' '}
-                  <span className="ml-2">{a.query}</span>
-                </span>
-                <span className={`text-xs font-mono ${a.mentionsBrand ? 'text-ok' : 'text-err'}`}>
-                  {a.mentionsBrand ? `mentioned @ #${a.brandPosition}` : 'not mentioned'}
-                </span>
-              </summary>
-              <div className="px-4 py-3 border-t border-border text-sm text-dim whitespace-pre-wrap leading-relaxed">
-                {a.answer}
-                {a.citedSources.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-border text-xs font-mono">
-                    {a.citedSources.map((s) => (
-                      <div key={s} className="text-accent">
-                        ↗ {s}
+      {/* ─── MENTION LEDGER ────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-12 gap-x-6 mb-10">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Section I</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                The Mention Ledger.
+              </h2>
+              <p className="text-ink mt-3 max-w-2xl">
+                Twelve queries ran against five engines. Sixty answers came back. Each row below
+                is one (query × engine) pair &mdash; the cell under <em>Mention</em> is set in
+                Fraunces, the rest in JetBrains Mono. A blank cell means the engine said the
+                name of another brand instead of yours.
+              </p>
+            </div>
+          </div>
+          <Ledger answers={report.answers} brand={report.brand} limit={12} />
+        </div>
+      </section>
+
+      {/* ─── PER-ENGINE ────────────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-12 gap-x-6 mb-10">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Section II</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                By engine.
+              </h2>
+              <p className="text-ink mt-3 max-w-2xl">
+                One row per engine. The bar is the share of that engine&apos;s answers that name
+                {report.brand}. A short verdict in the right column is the report&apos;s own
+                opinion.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-ink">
+            <div className="grid grid-cols-[180px_1fr_80px_120px] text-eyebrow py-3 border-b border-rule">
+              <span className="text-muted">Engine</span>
+              <span className="text-muted">Mention rate</span>
+              <span className="text-muted">Position</span>
+              <span className="text-muted text-right">Verdict</span>
+            </div>
+            {ENGINE_ORDER.map((e) => {
+              const r = report.perEngineMentionRate[e];
+              const p = report.perEngineAvgPosition[e];
+              const verdict = r === 0 ? 'silent' : r < 0.4 ? 'rare' : r < 0.7 ? 'sometimes' : 'often';
+              const isOk = r >= 0.7;
+              return (
+                <div
+                  key={e}
+                  className="ledger-cell grid grid-cols-[180px_1fr_80px_120px] items-center py-4 border-b border-rule"
+                >
+                  <span className="font-display text-xl text-ink" style={{ fontWeight: 500 }}>
+                    {ENGINE_NAMES[e]}
+                  </span>
+                  <span className="flex items-center gap-4 pr-8">
+                    <span className="flex-1 h-3 bg-cream border border-rule relative overflow-hidden">
+                      <span
+                        className={isOk ? 'absolute inset-y-0 left-0 bg-ok' : 'absolute inset-y-0 left-0 bg-signal'}
+                        style={{ width: `${r * 100}%` }}
+                      />
+                    </span>
+                    <span className="font-data text-sm w-12 text-right">{Math.round(r * 100)}%</span>
+                  </span>
+                  <span className="font-data text-sm">{p > 0 ? `#${p.toFixed(1)}` : '—'}</span>
+                  <span className={`text-right text-sm ${isOk ? 'text-ok' : 'text-signal'} font-display italic`} style={{ fontWeight: 500 }}>
+                    {verdict}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── SHARE OF VOICE + CITED SOURCES ────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-12 gap-x-6 mb-10">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Section III</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                Who else the engines cite.
+              </h2>
+              <p className="text-ink mt-3 max-w-2xl">
+                When the engines are talking about {report.category}, this is who else they
+                say. The brand they recommend most is, on average, the one your content has
+                to beat.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-12">
+            <div className="md:col-span-3">
+              <p className="eyebrow mb-6">Share of voice, top {topCompetitors.length + 1}</p>
+              <ul className="space-y-4">
+                {[
+                  { brand: report.brand, share: report.shareOfVoice[report.brand] ?? 0 },
+                  ...topCompetitors.map(([brand, share]) => ({ brand, share })),
+                ].map(({ brand, share }, i) => {
+                  const isUs = brand.toLowerCase() === report.brand.toLowerCase();
+                  const s = share * 100;
+                  return (
+                    <li key={`${brand}-${i}`}>
+                      <div className="flex items-baseline justify-between mb-1">
+                        <span className={`font-display text-xl ${isUs ? 'text-ink' : 'text-inkSoft'}`} style={{ fontWeight: isUs ? 580 : 400 }}>
+                          {isUs ? '— ' : ''}
+                          {brand}
+                          {isUs ? ' (you)' : ''}
+                        </span>
+                        <span className="font-data text-sm text-muted">{share > 0 ? `${s.toFixed(1)}%` : '—'}</span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </details>
-          ))}
+                      <div className="h-3 bg-cream border border-rule relative">
+                        <span
+                          className={isUs ? 'absolute inset-y-0 left-0 bg-signal' : 'absolute inset-y-0 left-0 bg-inkSoft/60'}
+                          style={{ width: `${Math.min(100, s)}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <aside className="md:col-span-2 md:pl-8 md:border-l md:border-rule">
+              <p className="eyebrow mb-6">Top cited sources</p>
+              {report.topSources.length === 0 ? (
+                <p className="text-sm text-muted">No sources cited.</p>
+              ) : (
+                <ol className="space-y-3 text-sm">
+                  {report.topSources.slice(0, 8).map((s, i) => (
+                    <li key={s} className="flex gap-3">
+                      <span className="font-data text-signal">[{i + 1}]</span>
+                      <span className="font-data text-xs text-inkSoft break-all">{s}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </aside>
+          </div>
         </div>
       </section>
 
-      <section className="bg-panel border border-border rounded-lg p-6 text-center">
-        <h3 className="text-xl font-semibold mb-2">Run audits monthly.</h3>
-        <p className="text-dim mb-4 max-w-xl mx-auto">
-          AI engines retrain constantly. Your mention rate can drop 10-20% in a quarter without any change on your site.
-          A weekly auto-audit catches this early. We&apos;re building this — get notified when it launches.
-        </p>
-        <a href="mailto:aeo-auditor@yourdomain.com?subject=Notify me" className="inline-block px-5 py-2.5 rounded-lg bg-accent text-bg font-medium hover:opacity-90">
-          Notify me →
-        </a>
+      {/* ─── RECOMMENDATIONS ──────────────────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-12 gap-x-6 mb-10">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Section IV</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                What to fix first.
+              </h2>
+              <p className="text-ink mt-3 max-w-2xl">
+                Sorted by effort. Low-effort items are where you should start tomorrow.
+              </p>
+            </div>
+          </div>
+
+          <ol className="space-y-0 border-t border-ink">
+            {report.recommendations.map((r, i) => {
+              const effortTone =
+                r.effort === 'low' ? 'text-ok' : r.effort === 'medium' ? 'text-signal' : 'text-muted';
+              return (
+                <li
+                  key={i}
+                  className="ledger-cell border-b border-rule py-8 grid grid-cols-12 gap-x-6 items-start"
+                >
+                  <span className="col-span-2 md:col-span-1 font-data text-muted text-sm">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="col-span-10 md:col-span-9">
+                    <h3
+                      className="font-display text-2xl text-ink mb-3"
+                      style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                    >
+                      {r.title}
+                    </h3>
+                    <p className="text-ink leading-relaxed max-w-3xl">{r.body}</p>
+                  </div>
+                  <div className="col-span-12 md:col-span-2 mt-4 md:mt-1 md:text-right">
+                    <span className={`eyebrow ${effortTone}`}>{r.effort} effort</span>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
       </section>
 
-      <footer className="mt-16 pt-8 border-t border-border text-xs text-dim">
-        Audit id: <span className="font-mono">{id}</span> · engines: simulated (production-mode swaps in real adapters via env vars).
-      </footer>
+      {/* ─── FOOTNOTES ─────────────────────────────────────────── */}
+      <section>
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <FootnoteBlock items={footnotes} />
+          <div className="flex items-center justify-between mt-12 pt-6 border-t border-rule">
+            <Link href="/" className="text-sm text-ink hover:text-signal transition-colors">
+              ← Back to all audits
+            </Link>
+            <span className="text-xs text-muted font-data">
+              Filed as {fileNo} · {report.brand} · {report.category}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <SiteFooter />
     </main>
-  );
-}
-
-function BigStat({ label, value, sub, tone }: { label: string; value: string; sub: string; tone: 'ok' | 'warn' | 'err' | 'text' }) {
-  const color = tone === 'ok' ? 'text-ok' : tone === 'warn' ? 'text-warn' : tone === 'err' ? 'text-err' : 'text-text';
-  return (
-    <div className="bg-panel border border-border rounded-lg p-5">
-      <div className="text-xs uppercase tracking-wider text-dim font-mono mb-2">{label}</div>
-      <div className={`text-3xl font-semibold ${color}`}>{value}</div>
-      {sub && <div className="text-xs text-dim mt-1">{sub}</div>}
-    </div>
-  );
-}
-
-function Bar({ value }: { value: number }) {
-  return (
-    <div className="inline-block w-32 h-2 bg-panel2 rounded overflow-hidden align-middle">
-      <div
-        className={`h-full ${value >= 0.7 ? 'bg-ok' : value >= 0.4 ? 'bg-warn' : 'bg-err'}`}
-        style={{ width: `${value * 100}%` }}
-      />
-    </div>
   );
 }

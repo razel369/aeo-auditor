@@ -2,6 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
-html, body { background: #0b0c10; color: #e7e9ee; }
-body { font-family: ui-sans-serif, system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif; }
+:root {
+  --paper: #f2ede4;
+  --cream: #efe6d2;
+  --rule: #d9d0bc;
+  --ink: #0e1116;
+  --ink-soft: #1b1f26;
+  --muted: #7b8a99;
+  --signal: #ff5136;
+  --ok: #2e6b4f;
+  --ok-bg: #d5e1d5;
+  color-scheme: light;
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 380;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Tabular numerals + slashed zero for the data display */
+.font-data {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'ss01', 'tnum', 'zero';
+  letter-spacing: 0;
+}
+
+/* Display class — Fraunces with optical-size 144 (designed for big headlines) */
+.font-display {
+  font-family: 'Fraunces', ui-serif, Georgia, serif;
+  font-variation-settings: 'opsz' 144, 'SOFT' 30, 'WONK' 0;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
+
+/* A small uppercase label, like a typographer's running head */
+.eyebrow {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+/* Hairline rule used as section divider */
+.rule {
+  border-color: var(--rule);
+}
+
+/* Selection */
+::selection {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* Focus — keyboard only, visible, never default browser blue */
+*:focus {
+  outline: none;
+}
+*:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* Reduce motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Page-load sequence */
+@keyframes ledger-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: ledger-rise 320ms cubic-bezier(0.2, 0.7, 0.1, 1) both;
+}
+
+/* The Mention Ledger — cell hover lifts the brand name in signal */
+.ledger-cell {
+  transition: background 120ms ease;
+}
+.ledger-cell:hover {
+  background: var(--cream);
+}
+.ledger-cell:hover .ledger-brand-hit {
+  text-decoration: underline;
+  text-decoration-color: var(--signal);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
