@@ -39,6 +39,10 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
   });
   const fileNo = `AEO-${id.slice(0, 4).toUpperCase()}`;
 
+  // Re-derived marker (set when the report was reconstructed from the id on a
+  // different Lambda instance — original answers are not recoverable).
+  const reDerived = (report as any).reDerived === true;
+
   // Footnotes
   const footnotes = [
     {
@@ -80,6 +84,18 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
       {/* ─── DOC HEADER: like a magazine cover strip ────────────── */}
       <section className="border-b border-ink">
         <div className="max-w-8xl mx-auto px-8 py-10">
+          {reDerived && (
+            <div className="mb-6 px-4 py-3 bg-cream border border-signal">
+              <p className="text-sm text-ink">
+                <span className="eyebrow text-signal mr-3">Re-derived</span>
+                The original audit ran on a different Lambda instance and its
+                answers were not preserved. This page shows the brand and category
+                reconstructed from the audit id, but the original per-engine data is
+                lost. To see full results, run a new audit on{' '}
+                <Link href="/" className="underline decoration-signal underline-offset-4">the homepage</Link>.
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-xs font-data text-muted uppercase tracking-eyebrow">
             <span>File {fileNo}</span>
             <span>·</span>

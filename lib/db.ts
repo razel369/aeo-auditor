@@ -1,14 +1,21 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, join } from 'node:path';
 
 let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (_db) return _db;
-  const path = resolve(process.cwd(), 'data', 'audits.db');
-  mkdirSync(dirname(path), { recursive: true });
-  _db = new Database(path);
+  // Vercel Lambda has only /tmp writable; everything else resets per cold start.
+  // In Vercel, the SQLite file is ephemeral — every cold start starts a fresh DB.
+  // That's fine for the demo: each visit gets a new audit id; history doesn't persist.
+  const baseDir = process.env.VERCEL ? '/tmp' : process.cwd();
+  const dbDir = process.env.VERCEL ? '/tmp' : join(baseDir, 'data');
+  const dbPath = resolve(dbDir, 'audits.db');
+  try {
+    mkdirSync(dirname(dbPath), { recursive: true });
+  } catch {}
+  _db = new Database(dbPath);
   _db.pragma('journal_mode = WAL');
   _db.exec(`
     CREATE TABLE IF NOT EXISTS audits (
