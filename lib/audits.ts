@@ -1,65 +1,104 @@
+/**
+ * Audit orchestration.
+ *
+ * The flow is:
+ *   1. `runAudit(brand, category, mode)` — main visibility audit.
+ *   2. `runOfflineMemoryAudit(brand, category)` — a focused check that runs
+ *      only the `*_nosearch` engines against pure brand-recall queries.
+ *      This is the metric nobody in the West measures.
+ *
+ * Both return `{ id, report }`. The id encodes the brand so a cold Lambda
+ * can re-derive a deterministic sim-mode report (the audit page surfaces
+ * this honestly with a "Re-derived" banner).
+ *
+ * Persistence is best-effort: if the database is unreachable, the audit
+ * still completes and the page renders from re-derivation.
+ */
+
 import { nanoid } from 'nanoid';
 import { generateQueries } from './query-generator';
-import { queryAllEngines, type EngineAnswer } from './engines';
+import { queryAllEngines, type EngineAnswer, type EngineId } from './engines';
 import { scoreAudit, type AuditReport } from './score';
-import type Database from 'better-sqlite3';
+import { saveAudit, getAudit as dbGetAudit, recentAudits as dbRecentAudits, getTrend as dbGetTrend, type RecentAuditSummary, type TrendResult } from './db';
 
-export interface AuditRow {
-  id: string;
-  brand: string;
-  category: string;
-  queries_json: string;
-  answers_json: string;
-  report_json: string;
-  mention_rate: number;
-  average_position: number;
-  created_at: string;
-}
+export interface AuditSummary extends RecentAuditSummary {}
 
-export interface AuditSummary {
-  id: string;
-  brand: string;
-  category: string;
-  mentionRate: number;
-  averagePosition: number;
-  created_at: string;
-}
+export type EngineMode = 'auto' | 'live' | 'sim' | 'offline_only';
 
 export async function runAudit(
-  db: Database.Database,
   brand: string,
   categoryHint?: string,
-  engineMode: 'auto' | 'live' | 'sim' = 'auto',
+  engineMode: EngineMode = 'auto',
 ): Promise<{ id: string; report: AuditReport }> {
   const queries = generateQueries(brand, categoryHint).map((q) => q.text);
-  const category = (categoryHint?.trim() ||
-    Object.values(generateQueries(brand, categoryHint))[0]?.text.match(/best (\w[\w\s]*?) tools/)?.[1] ||
-    'software').trim();
-
+  const category = inferCategory(brand, categoryHint, queries);
   const answers: EngineAnswer[] = await queryAllEngines(queries, brand, category, engineMode);
-  const report = scoreAudit(brand, category, queries, answers);
+  const report = scoreAudit(brand, category, queries, answers, 'standard');
   const id = buildAuditId(brand);
-
-  try {
-    db.prepare(
-      `INSERT INTO audits (id, brand, category, queries_json, answers_json, report_json, mention_rate, average_position)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      brand,
-      category,
-      JSON.stringify(queries),
-      JSON.stringify(answers),
-      JSON.stringify(report),
-      report.mentionRate,
-      report.averagePosition,
-    );
-  } catch {
-    // DB is best-effort (may be unavailable in serverless /tmp).
-    // The audit result is still valid — the id is the source of truth for re-running.
-  }
-
+  await saveAudit({
+    id,
+    brand,
+    category,
+    queries,
+    answers,
+    report,
+    mentionRate: report.mentionRate,
+    averagePosition: report.averagePosition,
+    weightedMentionRate: report.weightedMentionRate,
+    offlineMemoryRate: report.offlineMemoryRate,
+    auditKind: 'standard',
+  });
   return { id, report };
+}
+
+/**
+ * Offline-memory audit — only runs the `*_nosearch` engines, against a
+ * tight set of brand-recall queries. The output is the offline memory rate:
+ * "what does AI say about you when it can't search the web?"
+ */
+export async function runOfflineMemoryAudit(
+  brand: string,
+  categoryHint?: string,
+): Promise<{ id: string; report: AuditReport }> {
+  const category = inferCategory(brand, categoryHint, []);
+  const queries = offlineMemoryQueries(brand);
+  const answers: EngineAnswer[] = await queryAllEngines(queries, brand, category, 'offline_only');
+  const report = scoreAudit(brand, category, queries, answers, 'offline_memory');
+  const id = buildAuditId(brand, 'omem');
+  await saveAudit({
+    id,
+    brand,
+    category,
+    queries,
+    answers,
+    report,
+    mentionRate: report.mentionRate,
+    averagePosition: report.averagePosition,
+    weightedMentionRate: report.weightedMentionRate,
+    offlineMemoryRate: report.offlineMemoryRate,
+    auditKind: 'offline_memory',
+  });
+  return { id, report };
+}
+
+function inferCategory(brand: string, categoryHint: string | undefined, queries: string[]): string {
+  if (categoryHint?.trim()) return categoryHint.trim();
+  // Pull "best <X> tools" from the first generated query, fall back to "software".
+  const first = queries[0] ?? generateQueries(brand)[0]?.text ?? '';
+  const m = first.match(/best ([\w\s]+?) tools/i);
+  if (m) return m[1]!.trim();
+  return 'software';
+}
+
+function offlineMemoryQueries(brand: string): string[] {
+  return [
+    `Tell me about ${brand}.`,
+    `What is ${brand} known for?`,
+    `Who are ${brand}'s main competitors?`,
+    `What kind of product is ${brand}?`,
+    `What problem does ${brand} solve?`,
+    `Name a few alternatives to ${brand}.`,
+  ];
 }
 
 /**
@@ -69,24 +108,29 @@ export async function runAudit(
  * and ephemeral. If the report isn't in the DB (cold start, different instance),
  * we re-derive it deterministically from the brand encoded in the id.
  *
- * The id format is `<rand>-<brand-slug>` where brand-slug is a stable hash.
- * Re-running the deterministic sim against the same brand yields the same report.
+ * The id format is `<rand>[-<tag>]-<base64(brand)>`. Re-running the
+ * deterministic sim against the same brand yields the same report.
  */
-export function getAudit(db: Database.Database, id: string): AuditReport | null {
+export async function getAudit(id: string): Promise<AuditReport | null> {
   try {
-    const row = db.prepare(`SELECT report_json FROM audits WHERE id = ?`).get(id) as { report_json: string } | undefined;
-    if (row) return JSON.parse(row.report_json) as AuditReport;
+    const row = await dbGetAudit(id);
+    if (row?.report_json) {
+      const report = JSON.parse(row.report_json) as AuditReport;
+      // Hydrate offline memory kind if missing in older reports
+      if (!report.auditKind) report.auditKind = (row.audit_kind as 'standard' | 'offline_memory') || 'standard';
+      return report;
+    }
   } catch {}
   // Fallback: re-derive from id
-  const derived = deriveAuditFromId(id);
-  return derived;
+  return deriveAuditFromId(id);
 }
 
 function deriveAuditFromId(id: string): AuditReport | null {
-  // id format: rand (10 chars) - base64(brand) - base64(categoryHint?)
-  const m = id.match(/^([^-]+)-(.+)$/);
-  if (!m) return null;
-  const [, , brandEncoded] = m;
+  // id format: rand [-tag] - base64(brand)
+  const parts = id.split('-');
+  if (parts.length < 2) return null;
+  // last segment is base64(brand); earlier segments may be the rand or a tag.
+  const brandEncoded = parts[parts.length - 1]!;
   let brand: string;
   try {
     brand = Buffer.from(brandEncoded, 'base64').toString('utf-8');
@@ -94,55 +138,73 @@ function deriveAuditFromId(id: string): AuditReport | null {
     return null;
   }
   if (!brand) return null;
-  const queries = generateQueries(brand).map((q) => q.text);
-  const category = (queries[0]?.match(/best (\w[\w\s]*?) tools/)?.[1] ?? 'software').trim();
-  // Note: synchronous re-derivation only works for sim mode; for live mode we
-  // can't recover the original async answers. The audit page surfaces this honestly.
-  const sampleAnswers: EngineAnswer[] = queries.flatMap((q) =>
-    ([
-      ['chatgpt', 'ChatGPT'],
-      ['perplexity', 'Perplexity'],
-      ['claude', 'Claude'],
-      ['gemini', 'Gemini'],
-      ['google_ai', 'Google AI Overviews'],
-    ] as const).map(([engine, engineName]) => ({
-      engine,
-      engineName,
-      mode: 'sim' as const,
-      query: q,
-      answer: '',
-      citedSources: [],
-      mentionsBrand: false,
-      brandPosition: 0,
-      competitorsMentioned: [],
-      latencyMs: 0,
-      fetchedAt: new Date().toISOString(),
-      errored: true,
-      errorMessage: 'Re-derived from id (different Lambda instance); original answers are not recoverable for live audits.',
-    })),
-  );
-  const report = scoreAudit(brand, category, queries, sampleAnswers);
+  const offlineOnly = id.includes('-omem-');
+  const queries = offlineOnly ? offlineMemoryQueries(brand) : generateQueries(brand).map((q) => q.text);
+  const category = inferCategory(brand, undefined, queries);
+  // Re-derive only works in sim mode; live answers are not recoverable.
+  const sampleAnswers: EngineAnswer[] = offlineOnly
+    ? queries.flatMap((q) =>
+        (['chatgpt_nosearch', 'deepseek_nosearch', 'kimi_nosearch'] as const).map((id) => ({
+          engine: id as EngineId,
+          engineName: engineNameFor(id),
+          mode: 'sim' as const,
+          query: q,
+          answer: '',
+          citedSources: [],
+          mentionsBrand: false,
+          brandPosition: 0,
+          competitorsMentioned: [],
+          latencyMs: 0,
+          fetchedAt: new Date().toISOString(),
+          errored: true,
+          errorMessage: 'Re-derived from id (different Lambda instance); original answers are not recoverable for live audits.',
+        })),
+      )
+    : queries.flatMap((q) =>
+        (['chatgpt', 'perplexity', 'claude', 'gemini', 'google_ai'] as const).map((id) => ({
+          engine: id as EngineId,
+          engineName: engineNameFor(id),
+          mode: 'sim' as const,
+          query: q,
+          answer: '',
+          citedSources: [],
+          mentionsBrand: false,
+          brandPosition: 0,
+          competitorsMentioned: [],
+          latencyMs: 0,
+          fetchedAt: new Date().toISOString(),
+          errored: true,
+          errorMessage: 'Re-derived from id (different Lambda instance); original answers are not recoverable for live audits.',
+        })),
+      );
+  const report = scoreAudit(brand, category, queries, sampleAnswers, offlineOnly ? 'offline_memory' : 'standard');
   report.mentionRate = 0;
+  report.weightedMentionRate = 0;
+  report.offlineMemoryRate = 0;
   report.dataCompleteness = 0;
   report.liveShare = 0;
-  // Add a marker so the audit page can show "this is a re-derivation, not the original"
-  (report as any).reDerived = true;
+  // Marker so the audit page can show "this is a re-derivation, not the original"
+  (report as AuditReport & { reDerived?: boolean }).reDerived = true;
   return report;
 }
 
-export function listRecentAudits(db: Database.Database, limit = 10): AuditSummary[] {
+function engineNameFor(id: EngineId): string {
+  const map: Record<EngineId, string> = {
+    chatgpt: 'ChatGPT',
+    chatgpt_nosearch: 'ChatGPT (offline)',
+    perplexity: 'Perplexity',
+    claude: 'Claude',
+    gemini: 'Gemini',
+    google_ai: 'Google AI Overviews',
+    deepseek_nosearch: 'DeepSeek (offline)',
+    kimi_nosearch: 'Kimi (offline)',
+  };
+  return map[id];
+}
+
+export async function listRecentAudits(limit = 8): Promise<AuditSummary[]> {
   try {
-    const rows = db
-      .prepare(`SELECT id, brand, category, mention_rate, average_position, created_at FROM audits ORDER BY created_at DESC LIMIT ?`)
-      .all(limit) as Array<AuditSummary & { mention_rate: number; average_position: number }>;
-    return rows.map((r) => ({
-      id: r.id,
-      brand: r.brand,
-      category: r.category,
-      mentionRate: r.mention_rate,
-      averagePosition: r.average_position,
-      created_at: r.created_at,
-    }));
+    return await dbRecentAudits(limit);
   } catch {
     return [];
   }
@@ -150,10 +212,21 @@ export function listRecentAudits(db: Database.Database, limit = 10): AuditSummar
 
 /**
  * Build a stable audit id that encodes the brand so we can re-derive
- * the audit on a cold Lambda. Format: 10-char-nanoid-base64(brand).
+ * the audit on a cold Lambda.
+ *
+ * Format: `<rand>-<base64(brand)>` for standard audits.
+ *         `<rand>-omem-<base64(brand)>` for offline-memory audits.
  */
-export function buildAuditId(brand: string): string {
+export function buildAuditId(brand: string, tag?: string): string {
   const rand = nanoid(10);
   const encoded = Buffer.from(brand, 'utf-8').toString('base64').replace(/=+$/, '');
+  if (tag) return `${rand}-${tag}-${encoded}`;
   return `${rand}-${encoded}`;
+}
+
+/** Engine-name lookup used elsewhere — kept here so tests can stub. */
+export { generateQueries };
+
+export async function getTrend(brand: string, weeks = 12): Promise<TrendResult> {
+  return dbGetTrend(brand, weeks);
 }

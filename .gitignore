@@ -14,3 +14,4 @@ tsconfig.tsbuildinfo
 docs/snapshots/
 playwright-report/
 test-results/
+.vercel

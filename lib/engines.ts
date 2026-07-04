@@ -12,7 +12,15 @@
  *   - 'unavailable' → no adapter for this engine in this build
  */
 
-export type EngineId = 'chatgpt' | 'perplexity' | 'claude' | 'gemini' | 'google_ai';
+export type EngineId =
+  | 'chatgpt'
+  | 'chatgpt_nosearch'
+  | 'perplexity'
+  | 'claude'
+  | 'gemini'
+  | 'google_ai'
+  | 'deepseek_nosearch'
+  | 'kimi_nosearch';
 
 export type EngineMode = 'live' | 'sim' | 'unavailable';
 
@@ -45,14 +53,21 @@ export interface EngineAdapter {
 
 const REGISTRY: Record<EngineId, EngineAdapter> = {
   chatgpt: chatgptAdapter(),
+  chatgpt_nosearch: chatgptOfflineAdapter(),
   perplexity: perplexityAdapter(),
   claude: claudeAdapter(),
   gemini: geminiAdapter(),
   google_ai: googleAiAdapter(),
+  deepseek_nosearch: deepseekOfflineAdapter(),
+  kimi_nosearch: kimiOfflineAdapter(),
 };
 
-export function getAdapters(mode: 'auto' | 'live' | 'sim' = 'auto'): EngineAdapter[] {
+export function getAdapters(mode: 'auto' | 'live' | 'sim' | 'offline_only' = 'auto'): EngineAdapter[] {
   const all = Object.values(REGISTRY);
+  if (mode === 'offline_only') {
+    // Only engines that explicitly disable web search.
+    return all.filter((a) => a.id.endsWith('_nosearch')).map((a) => (a.mode === 'live' ? a : withSim(a)));
+  }
   if (mode === 'sim') return all.map((a) => (a.mode === 'unavailable' ? a : withSim(a)));
   if (mode === 'live') return all;
   // auto: prefer live if available, fall back to sim. Unavailable adapters stay unavailable.
@@ -64,18 +79,29 @@ function withSim(a: EngineAdapter): EngineAdapter {
 }
 
 // ─── Live adapters ─────────────────────────────────────────────────────
+//
+// Each adapter reads its key via `resolveKey()` at query time. Priority:
+//   1. Turso `org_keys` row (BYOK via /api/keys)
+//   2. process.env.<KEY> (env-var fallback)
+//   3. sim mode (no key → simulated answer)
+//
+// The synchronous `mode` field reflects the env-var state at process start.
+// At runtime, if a BYOK key is added, the first query will resolve it and
+// return `mode: 'live'` regardless of what the static field says.
+
+import { resolveKey } from './byok';
 
 function perplexityAdapter(): EngineAdapter {
-  const key = process.env.PERPLEXITY_API_KEY;
-  const enabled = !!key;
+  const envKey = process.env.PERPLEXITY_API_KEY;
   return {
     id: 'perplexity',
     name: 'Perplexity',
-    mode: enabled ? 'live' : 'sim',
+    mode: envKey ? 'live' : 'sim',
     async query(query, brand, category) {
       const t0 = Date.now();
       const fetchedAt = new Date().toISOString();
-      if (!enabled) {
+      const key = await resolveKey('perplexity');
+      if (!key) {
         return simulatedAnswer('perplexity', 'Perplexity', query, brand, category, t0, fetchedAt);
       }
       try {
@@ -119,14 +145,15 @@ function perplexityAdapter(): EngineAdapter {
 }
 
 function chatgptAdapter(): EngineAdapter {
-  const key = process.env.OPENAI_API_KEY;
+  const envKey = process.env.OPENAI_API_KEY;
   return {
     id: 'chatgpt',
     name: 'ChatGPT',
-    mode: key ? 'live' : 'sim',
+    mode: envKey ? 'live' : 'sim',
     async query(query, brand, category) {
       const t0 = Date.now();
       const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('openai');
       if (!key) return simulatedAnswer('chatgpt', 'ChatGPT', query, brand, category, t0, fetchedAt);
       try {
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -154,14 +181,15 @@ function chatgptAdapter(): EngineAdapter {
 }
 
 function claudeAdapter(): EngineAdapter {
-  const key = process.env.ANTHROPIC_API_KEY;
+  const envKey = process.env.ANTHROPIC_API_KEY;
   return {
     id: 'claude',
     name: 'Claude',
-    mode: key ? 'live' : 'sim',
+    mode: envKey ? 'live' : 'sim',
     async query(query, brand, category) {
       const t0 = Date.now();
       const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('anthropic');
       if (!key) return simulatedAnswer('claude', 'Claude', query, brand, category, t0, fetchedAt);
       try {
         const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -190,14 +218,15 @@ function claudeAdapter(): EngineAdapter {
 }
 
 function geminiAdapter(): EngineAdapter {
-  const key = process.env.GOOGLE_API_KEY;
+  const envKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY;
   return {
     id: 'gemini',
     name: 'Gemini',
-    mode: key ? 'live' : 'sim',
+    mode: envKey ? 'live' : 'sim',
     async query(query, brand, category) {
       const t0 = Date.now();
       const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('google');
       if (!key) return simulatedAnswer('gemini', 'Gemini', query, brand, category, t0, fetchedAt);
       try {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
@@ -247,6 +276,136 @@ function googleAiAdapter(): EngineAdapter {
         errored: true,
         errorMessage: 'No public API for Google AI Overviews in this build.',
       };
+    },
+  };
+}
+
+// ─── Offline-memory adapters (no web search) ───────────────────────────
+//
+// These adapters deliberately disable web search. They measure whether the
+// model "remembers" the brand from its training corpus alone. They are the
+// killer AEO metric: the difference between a category brand (Linear,
+// Stripe) and a long-tail brand nobody's heard of.
+
+const NO_SEARCH_SYSTEM_PROMPT = [
+  'You are answering from your own knowledge only.',
+  'Do NOT use any web search, retrieval, or browsing tools.',
+  'If you are confident, name specific brands and products by name.',
+  'If you are not confident, say so plainly.',
+  'Keep answers under 200 words.',
+].join(' ');
+
+function chatgptOfflineAdapter(): EngineAdapter {
+  const envKey = process.env.OPENAI_API_KEY;
+  return {
+    id: 'chatgpt_nosearch',
+    name: 'ChatGPT (offline)',
+    mode: envKey ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('openai');
+      if (!key) {
+        return simulatedAnswer('chatgpt_nosearch', 'ChatGPT (offline)', query, brand, category, t0, fetchedAt);
+      }
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: NO_SEARCH_SYSTEM_PROMPT },
+              { role: 'user', content: query },
+            ],
+            // No `tools` array — explicitly disables web search / retrieval.
+            temperature: 0.2,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('chatgpt_nosearch', 'ChatGPT (offline)', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+        const text = json.choices?.[0]?.message?.content ?? '';
+        return parseAnswer('chatgpt_nosearch', 'ChatGPT (offline)', query, brand, category, text, [], t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('chatgpt_nosearch', 'ChatGPT (offline)', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function deepseekOfflineAdapter(): EngineAdapter {
+  const envKey = process.env.DEEPSEEK_API_KEY;
+  return {
+    id: 'deepseek_nosearch',
+    name: 'DeepSeek (offline)',
+    mode: envKey ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('deepseek');
+      if (!key) {
+        return simulatedAnswer('deepseek_nosearch', 'DeepSeek (offline)', query, brand, category, t0, fetchedAt);
+      }
+      try {
+        const res = await fetch('https://api.deepseek.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [
+              { role: 'system', content: NO_SEARCH_SYSTEM_PROMPT },
+              { role: 'user', content: query },
+            ],
+            temperature: 0.2,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('deepseek_nosearch', 'DeepSeek (offline)', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+        const text = json.choices?.[0]?.message?.content ?? '';
+        return parseAnswer('deepseek_nosearch', 'DeepSeek (offline)', query, brand, category, text, [], t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('deepseek_nosearch', 'DeepSeek (offline)', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function kimiOfflineAdapter(): EngineAdapter {
+  const envKey = process.env.MOONSHOT_API_KEY;
+  return {
+    id: 'kimi_nosearch',
+    name: 'Kimi (offline)',
+    mode: envKey ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      const key = await resolveKey('moonshot');
+      if (!key) {
+        return simulatedAnswer('kimi_nosearch', 'Kimi (offline)', query, brand, category, t0, fetchedAt);
+      }
+      try {
+        const res = await fetch('https://api.moonshot.cn/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: 'moonshot-v1-8k',
+            messages: [
+              { role: 'system', content: NO_SEARCH_SYSTEM_PROMPT },
+              { role: 'user', content: query },
+            ],
+            temperature: 0.2,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('kimi_nosearch', 'Kimi (offline)', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+        const text = json.choices?.[0]?.message?.content ?? '';
+        return parseAnswer('kimi_nosearch', 'Kimi (offline)', query, brand, category, text, [], t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('kimi_nosearch', 'Kimi (offline)', query, t0, fetchedAt, (e as Error).message);
+      }
     },
   };
 }
@@ -354,10 +513,13 @@ function simulatedAnswer(
 
   const biases: Record<EngineId, { mentionProb: number; position: number }> = {
     chatgpt: { mentionProb: 0.72, position: 3 },
+    chatgpt_nosearch: { mentionProb: 0.55, position: 3 },
     perplexity: { mentionProb: 0.65, position: 4 },
     claude: { mentionProb: 0.58, position: 5 },
     gemini: { mentionProb: 0.5, position: 4 },
     google_ai: { mentionProb: 0.78, position: 3 },
+    deepseek_nosearch: { mentionProb: 0.45, position: 4 },
+    kimi_nosearch: { mentionProb: 0.5, position: 4 },
   };
   const bias = biases[engineId];
   const mentions = rng() < bias.mentionProb;
@@ -489,31 +651,48 @@ function parseAnswer(
 }
 
 /**
- * Run every adapter × every query, with bounded parallelism.
+ * Run every adapter × every query, with bounded parallelism (5 in-flight at a time).
  * Surfaces errors per-cell rather than failing the whole audit.
+ * This is critical for serverless functions — `Promise.all` over 60+ cells
+ * would blow past the 10s default Vercel Lambda timeout.
  */
 export async function queryAllEngines(
   queries: string[],
   brand: string,
   category: string,
-  mode: 'auto' | 'live' | 'sim' = 'auto',
+  mode: 'auto' | 'live' | 'sim' | 'offline_only' = 'auto',
 ): Promise<EngineAnswer[]> {
   const adapters = getAdapters(mode);
-  const cells: Promise<EngineAnswer>[] = [];
-  for (const a of adapters) for (const q of queries) cells.push(a.query(q, brand, category));
-  const settled = await Promise.allSettled(cells);
-  return settled.map((s, i) => {
-    if (s.status === 'fulfilled') return s.value;
-    const adapter = adapters[Math.floor(i / queries.length)]!;
-    return errAnswer(
-      adapter.id,
-      adapter.name,
-      queries[i % queries.length]!,
-      Date.now(),
-      new Date().toISOString(),
-      (s.reason as Error)?.message ?? 'unknown',
-    );
-  });
+  const jobs: Array<{ adapter: EngineAdapter; query: string }> = [];
+  for (const a of adapters) for (const q of queries) jobs.push({ adapter: a, query: q });
+
+  const out: EngineAnswer[] = new Array(jobs.length);
+  let cursor = 0;
+  const CONCURRENCY = 5;
+
+  async function worker() {
+    while (true) {
+      const i = cursor++;
+      if (i >= jobs.length) return;
+      const job = jobs[i]!;
+      try {
+        out[i] = await job.adapter.query(job.query, brand, category);
+      } catch (e) {
+        out[i] = errAnswer(
+          job.adapter.id,
+          job.adapter.name,
+          job.query,
+          Date.now(),
+          new Date().toISOString(),
+          (e as Error)?.message ?? 'unknown',
+        );
+      }
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(CONCURRENCY, jobs.length) }, () => worker());
+  await Promise.all(workers);
+  return out;
 }
 
 export { KNOWN_BRANDS };

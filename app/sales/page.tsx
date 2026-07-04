@@ -35,6 +35,13 @@ export default function SalesPage() {
       {/* ─── LETTER ────────────────────────────────────────────── */}
       <article className="border-b border-rule">
         <div className="max-w-3xl mx-auto px-8 py-20 space-y-7 text-lg leading-relaxed text-ink">
+          <p className="font-display text-2xl text-ink leading-snug" style={{ fontWeight: 500 }}>
+            <em>There&apos;s a question nobody in AEO is asking.</em>{' '}
+            <strong>Does ChatGPT know your brand when it&apos;s offline?</strong>{' '}
+            Without web search enabled, does it still recommend you? That&apos;s the
+            difference between a category brand and a long-tail one. We test both.
+          </p>
+
           <p>
             If you are a CMO at a $1M&ndash;$50M ARR SaaS business, you have probably
             noticed something weird in the last four quarters. Organic traffic is down.

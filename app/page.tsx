@@ -1,16 +1,16 @@
 import Link from 'next/link';
-import { getDb } from '@/lib/db';
 import { listRecentAudits } from '@/lib/audits';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { Stat } from '@/components/Number';
+import { HeroTabs } from '@/components/HeroTabs';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   let recent: Awaited<ReturnType<typeof listRecentAudits>> = [];
   try {
-    recent = listRecentAudits(getDb(), 8);
+    recent = await listRecentAudits(8);
   } catch {}
 
   return (
@@ -36,23 +36,7 @@ export default async function HomePage() {
                 Where you don&apos;t. Who does, instead.
               </p>
 
-              <form action="/audit/new" method="get" className="flex gap-0 items-stretch max-w-xl border border-ink">
-                <input
-                  name="brand"
-                  placeholder="A brand name. Try &ldquo;Linear&rdquo;."
-                  required
-                  className="flex-1 px-5 py-4 bg-paper text-ink placeholder-muted text-base focus:bg-cream transition-colors"
-                />
-                <button
-                  type="submit"
-                  className="px-7 py-4 bg-ink text-paper font-medium hover:bg-signal transition-colors text-sm uppercase tracking-eyebrow"
-                >
-                  Run audit
-                </button>
-              </form>
-              <p className="text-xs text-muted mt-3 font-data">
-                ~90 seconds · No signup · Stored in a real ledger
-              </p>
+              <HeroTabs />
             </div>
 
             {/* Right 5 cols: masthead-style metadata */}
@@ -104,10 +88,11 @@ export default async function HomePage() {
       {/* ─── STATS BAR ──────────────────────────────────────── */}
       <section className="border-b border-rule">
         <div className="max-w-8xl mx-auto px-8 py-14">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-10 md:gap-6">
             <Stat value="5" label="AI engines" />
             <Stat value="12" label="Queries per audit" />
             <Stat value="60" label="Answers scored" />
+            <Stat value="3" label="Offline engines" />
             <Stat value="~90s" label="Run time" />
           </div>
         </div>
@@ -188,7 +173,7 @@ export default async function HomePage() {
                 {recent.map((a) => (
                   <tr key={a.id} className="border-b border-rule hover:bg-cream transition-colors">
                     <td className="py-3 pr-4 font-data text-xs text-muted">
-                      {new Date(a.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
+                      {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
                     </td>
                     <td className="py-3 pr-4 font-display text-lg" style={{ fontWeight: 500 }}>
                       <Link href={`/audit/${a.id}`} className="hover:text-signal transition-colors">
