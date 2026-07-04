@@ -55,7 +55,11 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
     },
     {
       index: 4,
-      text: 'This v0.1 build uses deterministic simulated engines seeded by brand name. Production mode swaps in real adapters via ENGINE_MODE=production.',
+      text: 'Sim-mode answers are deterministic, seeded by brand and query — they show the shape of a real response, not a measurement. Live-mode answers are real API calls run when keys are present.',
+    },
+    {
+      index: 5,
+      text: 'Data quality: percent of (engine × query) cells with valid data. Live share: percent of valid cells from real engines vs sim fallback.',
     },
   ];
 
@@ -108,7 +112,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
             <span className={verdictTone === 'ok' ? 'text-ok' : 'text-signal'}>∎</span> {verdictText}
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-10">
             <div>
               <p className="eyebrow mb-2">Mention rate <Footnote index={1} /></p>
               <p className={`font-display text-7xl leading-none ${verdictTone === 'ok' ? 'text-ok' : 'text-signal'}`} style={{ fontWeight: 580 }}>
@@ -133,6 +137,15 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
               <p className="font-display text-7xl leading-none text-ink" style={{ fontWeight: 580 }}>
                 {ENGINE_ORDER.filter((e) => report.perEngineMentionRate[e] > 0).length}
                 <span className="text-3xl text-muted">/{ENGINE_ORDER.length}</span>
+              </p>
+            </div>
+            <div>
+              <p className="eyebrow mb-2">Data quality <Footnote index={5} /></p>
+              <p className="font-display text-7xl leading-none text-ink" style={{ fontWeight: 580 }}>
+                {Math.round(report.dataCompleteness * 100)}<span className="text-3xl text-muted">%</span>
+              </p>
+              <p className="text-xs text-muted mt-2 font-data">
+                {Math.round(report.liveShare * 100)}% live · {Math.round((1 - report.liveShare) * 100)}% sim
               </p>
             </div>
           </div>
@@ -227,12 +240,78 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
         </div>
       </section>
 
-      {/* ─── SHARE OF VOICE + CITED SOURCES ────────────────────── */}
+      {/* ─── FIELD DATA ────────────────────────────────────────── */}
       <section className="border-b border-rule">
         <div className="max-w-8xl mx-auto px-8 py-16">
           <div className="grid grid-cols-12 gap-x-6 mb-10">
             <div className="col-span-12 md:col-span-2">
               <p className="eyebrow">Section III</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                The field data, on the record.
+              </h2>
+              <p className="text-ink mt-3 max-w-2xl">
+                Each engine either answered us live, returned a deterministic fallback, or was
+                unavailable in this build. The data-quality number above the fold is honest about
+                which is which.
+              </p>
+            </div>
+          </div>
+
+          <div className="border-t border-ink">
+            <div className="grid grid-cols-[180px_1fr_140px] text-eyebrow py-3 border-b border-rule">
+              <span className="text-muted">Engine</span>
+              <span className="text-muted">Sample answer (truncated)</span>
+              <span className="text-muted text-right">Mode</span>
+            </div>
+            {ENGINE_ORDER.map((e) => {
+              const sample = report.answers.find((a) => a.engine === e && !a.errored && a.mode !== 'unavailable');
+              const mode = report.perEngineMode[e];
+              const modeTone =
+                mode === 'live' ? 'text-ok' : mode === 'sim' ? 'text-signal' : 'text-muted';
+              return (
+                <div
+                  key={e}
+                  className="grid grid-cols-[180px_1fr_140px] items-start py-5 border-b border-rule gap-x-6"
+                >
+                  <span className="font-display text-xl text-ink pt-0.5" style={{ fontWeight: 500 }}>
+                    {ENGINE_NAMES[e]}
+                  </span>
+                  <div>
+                    {sample ? (
+                      <>
+                        <p className="text-xs text-muted font-data mb-1.5">↳ {sample.query}</p>
+                        <p className="text-sm text-ink leading-relaxed line-clamp-4">
+                          {sample.answer.replace(/\*\*/g, '')}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted italic">No data from this engine in this audit.</p>
+                    )}
+                  </div>
+                  <div className="text-right pt-0.5">
+                    <span className={`eyebrow ${modeTone}`}>{mode}</span>
+                    {sample && (
+                      <p className="text-[10px] text-muted font-data mt-1.5">{new Date(sample.fetchedAt).toLocaleString()}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── SHARE OF VOICE + CITED SOURCES ────────────────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-16">
+          <div className="grid grid-cols-12 gap-x-6 mb-10">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Section IV</p>
             </div>
             <div className="col-span-12 md:col-span-10">
               <h2
@@ -305,7 +384,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
         <div className="max-w-8xl mx-auto px-8 py-16">
           <div className="grid grid-cols-12 gap-x-6 mb-10">
             <div className="col-span-12 md:col-span-2">
-              <p className="eyebrow">Section IV</p>
+              <p className="eyebrow">Section V</p>
             </div>
             <div className="col-span-12 md:col-span-10">
               <h2

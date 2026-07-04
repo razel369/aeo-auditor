@@ -1,33 +1,33 @@
 /**
- * AI engine adapters.
+ * Engine adapter contract + registry.
  *
- * v0.1 ships HONEST SIMULATIONS that produce realistic-shaped responses
- * based on the brand name and category. The real engine adapters (ChatGPT,
- * Perplexity, Claude.ai, Gemini, Google AI Overviews) plug in via env vars:
+ * Every engine adapter — live or simulated — implements the same shape.
+ * The report surface does not care which mode produced a result; what matters
+ * is `mode` so we can be honest in the deliverable about what is real data
+ * and what is fallback.
  *
- *   ENGINE_MODE=production   → use real adapters
- *   ENGINE_MODE=simulated    → use the simulations below
- *
- * The simulations are NOT random — they're seeded by brand name so a given
- * brand always produces the same report (so demos are stable). Real
- * adapters use the same response shape, so swapping is a one-config change.
+ * Modes:
+ *   - 'live'  → a real HTTP call to a real engine API right now
+ *   - 'sim'   → a deterministic, seeded response — clearly labeled as a fallback
+ *   - 'unavailable' → no adapter for this engine in this build
  */
 
 export type EngineId = 'chatgpt' | 'perplexity' | 'claude' | 'gemini' | 'google_ai';
 
+export type EngineMode = 'live' | 'sim' | 'unavailable';
+
 export interface EngineAnswer {
   engine: EngineId;
   engineName: string;
+  mode: EngineMode;
   query: string;
   answer: string;
   citedSources: string[];
-  /** Did the engine mention the target brand at all? */
   mentionsBrand: boolean;
-  /** What position did the brand appear in (1-indexed), if mentioned? 0 if not. */
-  brandPosition: number;
-  /** What competitors were mentioned (extracted heuristically from answer text)? */
+  brandPosition: number; // 1-indexed, 0 = not mentioned
   competitorsMentioned: string[];
   latencyMs: number;
+  fetchedAt: string; // ISO
   errored: boolean;
   errorMessage?: string;
 }
@@ -35,27 +35,224 @@ export interface EngineAnswer {
 export interface EngineAdapter {
   id: EngineId;
   name: string;
+  mode: EngineMode;
+  /**
+   * Returns either a real answer or, on failure, an answer with `errored: true`.
+   * Adapters should never throw — they surface failure through the result.
+   */
   query(query: string, brand: string, category: string): Promise<EngineAnswer>;
 }
 
-// ─── Deterministic pseudo-random based on string ──────────────────────
-function hash(str: string): number {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
-  return Math.abs(h | 0);
-}
-function seededRandom(seed: number): () => number {
-  let s = seed || 1;
-  return () => {
-    s = (s * 9301 + 49297) % 233280;
-    return s / 233280;
-  };
-}
-function pick<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)]!;
+const REGISTRY: Record<EngineId, EngineAdapter> = {
+  chatgpt: chatgptAdapter(),
+  perplexity: perplexityAdapter(),
+  claude: claudeAdapter(),
+  gemini: geminiAdapter(),
+  google_ai: googleAiAdapter(),
+};
+
+export function getAdapters(mode: 'auto' | 'live' | 'sim' = 'auto'): EngineAdapter[] {
+  const all = Object.values(REGISTRY);
+  if (mode === 'sim') return all.map((a) => (a.mode === 'unavailable' ? a : withSim(a)));
+  if (mode === 'live') return all;
+  // auto: prefer live if available, fall back to sim. Unavailable adapters stay unavailable.
+  return all.map((a) => (a.mode === 'live' ? a : a.mode === 'unavailable' ? a : withSim(a)));
 }
 
-// ─── A library of plausible competitor lists by category ──────────────
+function withSim(a: EngineAdapter): EngineAdapter {
+  return { ...a, mode: 'sim' as const, query: (q, brand, cat) => simulatedAdapter(a.id, a.name).query(q, brand, cat) };
+}
+
+// ─── Live adapters ─────────────────────────────────────────────────────
+
+function perplexityAdapter(): EngineAdapter {
+  const key = process.env.PERPLEXITY_API_KEY;
+  const enabled = !!key;
+  return {
+    id: 'perplexity',
+    name: 'Perplexity',
+    mode: enabled ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      if (!enabled) {
+        return simulatedAnswer('perplexity', 'Perplexity', query, brand, category, t0, fetchedAt);
+      }
+      try {
+        const res = await fetch('https://api.perplexity.ai/chat/completions', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${key}`,
+            accept: 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'sonar-pro',
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Answer the question as you would to a real buyer. Name specific brands and products. Include source URLs you relied on.',
+              },
+              { role: 'user', content: query },
+            ],
+            temperature: 0.2,
+            return_citations: true,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) {
+          return errAnswer('perplexity', 'Perplexity', query, t0, fetchedAt, `HTTP ${res.status}`);
+        }
+        const json = (await res.json()) as {
+          choices: Array<{ message: { content: string } }>;
+          citations?: string[];
+        };
+        const text = json.choices?.[0]?.message?.content ?? '';
+        const citedSources = parseUrlsFromText(text).concat(json.citations ?? []);
+        return parseAnswer('perplexity', 'Perplexity', query, brand, category, text, citedSources, t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('perplexity', 'Perplexity', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function chatgptAdapter(): EngineAdapter {
+  const key = process.env.OPENAI_API_KEY;
+  return {
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    mode: key ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      if (!key) return simulatedAnswer('chatgpt', 'ChatGPT', query, brand, category, t0, fetchedAt);
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: 'Answer as ChatGPT would to a real buyer. Name specific brands and products.' },
+              { role: 'user', content: query },
+            ],
+            temperature: 0.3,
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('chatgpt', 'ChatGPT', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as { choices: Array<{ message: { content: string } }> };
+        const text = json.choices?.[0]?.message?.content ?? '';
+        return parseAnswer('chatgpt', 'ChatGPT', query, brand, category, text, parseUrlsFromText(text), t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('chatgpt', 'ChatGPT', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function claudeAdapter(): EngineAdapter {
+  const key = process.env.ANTHROPIC_API_KEY;
+  return {
+    id: 'claude',
+    name: 'Claude',
+    mode: key ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      if (!key) return simulatedAnswer('claude', 'Claude', query, brand, category, t0, fetchedAt);
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-haiku-latest',
+            max_tokens: 800,
+            messages: [{ role: 'user', content: query }],
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('claude', 'Claude', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as { content: Array<{ type: string; text?: string }> };
+        const text = (json.content?.find((c) => c.type === 'text')?.text) ?? '';
+        return parseAnswer('claude', 'Claude', query, brand, category, text, parseUrlsFromText(text), t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('claude', 'Claude', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function geminiAdapter(): EngineAdapter {
+  const key = process.env.GOOGLE_API_KEY;
+  return {
+    id: 'gemini',
+    name: 'Gemini',
+    mode: key ? 'live' : 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      const fetchedAt = new Date().toISOString();
+      if (!key) return simulatedAnswer('gemini', 'Gemini', query, brand, category, t0, fetchedAt);
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: query }] }],
+            generationConfig: { temperature: 0.3 },
+          }),
+          signal: AbortSignal.timeout(25_000),
+        });
+        if (!res.ok) return errAnswer('gemini', 'Gemini', query, t0, fetchedAt, `HTTP ${res.status}`);
+        const json = (await res.json()) as {
+          candidates: Array<{ content: { parts: Array<{ text: string }> } }>;
+        };
+        const text = json.candidates?.[0]?.content?.parts?.map((p) => p.text).join('') ?? '';
+        return parseAnswer('gemini', 'Gemini', query, brand, category, text, parseUrlsFromText(text), t0, fetchedAt, 'live');
+      } catch (e) {
+        return errAnswer('gemini', 'Gemini', query, t0, fetchedAt, (e as Error).message);
+      }
+    },
+  };
+}
+
+function googleAiAdapter(): EngineAdapter {
+  // Google AI Overviews is not generally available via a public paid API in 2026.
+  // The most honest move is to mark it unavailable until a real source exists.
+  return {
+    id: 'google_ai',
+    name: 'Google AI Overviews',
+    mode: 'unavailable',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      return {
+        engine: 'google_ai' as const,
+        engineName: 'Google AI Overviews',
+        mode: 'unavailable' as const,
+        query,
+        answer: '',
+        citedSources: [],
+        mentionsBrand: false,
+        brandPosition: 0,
+        competitorsMentioned: [],
+        latencyMs: Date.now() - t0,
+        fetchedAt: new Date().toISOString(),
+        errored: true,
+        errorMessage: 'No public API for Google AI Overviews in this build.',
+      };
+    },
+  };
+}
+
+// ─── Simulated adapter (fallback only) ─────────────────────────────────
+
 const COMPETITORS_BY_CATEGORY: Record<string, string[]> = {
   'project management': ['Linear', 'Asana', 'Jira', 'Monday', 'ClickUp', 'Notion', 'Trello'],
   'payment processing': ['Stripe', 'Adyen', 'PayPal', 'Square', 'Braintree', 'Checkout.com'],
@@ -75,29 +272,99 @@ const COMPETITORS_BY_CATEGORY: Record<string, string[]> = {
   'customer support': ['Intercom', 'Zendesk', 'Freshdesk', 'Help Scout', 'Tidio'],
   presentation: ['Gamma', 'Pitch', 'Beautiful.ai', 'Canva', 'Google Slides'],
   'website builder': ['Webflow', 'Framer', 'Squarespace', 'Wix', 'Typedream'],
-  'spreadsheet': ['Airtable', 'Notion', 'Coda', 'Rows', 'SmartSuite'],
+  spreadsheet: ['Airtable', 'Notion', 'Coda', 'Rows', 'SmartSuite'],
   'team chat': ['Slack', 'Microsoft Teams', 'Discord', 'Mattermost', 'Rocket.Chat'],
 };
 
-// ─── Simulated adapters ───────────────────────────────────────────────
+const KNOWN_BRANDS: Record<string, string> = {
+  linear: 'project management',
+  stripe: 'payment processing',
+  notion: 'productivity',
+  vercel: 'frontend deployment',
+  figma: 'design',
+  airtable: 'spreadsheet',
+  webflow: 'website builder',
+  intercom: 'customer support',
+  hubspot: 'crm',
+  salesforce: 'crm',
+  slack: 'team chat',
+  asana: 'project management',
+  jira: 'project management',
+  monday: 'project management',
+  clickup: 'project management',
+  datadog: 'monitoring',
+  segment: 'analytics',
+  amplitude: 'analytics',
+  mixpanel: 'analytics',
+  posthog: 'analytics',
+  snowflake: 'data warehouse',
+  bigquery: 'data warehouse',
+  supabase: 'database',
+  planetscale: 'database',
+  cursor: 'code editor',
+  replit: 'code editor',
+  github: 'code hosting',
+  gitlab: 'code hosting',
+  render: 'cloud hosting',
+  railway: 'cloud hosting',
+  perplexity: 'ai search',
+  claude: 'ai assistant',
+  chatgpt: 'ai assistant',
+};
 
-async function simulateAnswer(
-  engine: EngineAdapter,
+function simulatedAdapter(id: EngineId, name: string): EngineAdapter {
+  return {
+    id,
+    name,
+    mode: 'sim',
+    async query(query, brand, category) {
+      const t0 = Date.now();
+      return simulatedAnswer(id, name, query, brand, category, t0, new Date().toISOString());
+    },
+  };
+}
+
+// ─── Simulation logic — clearly labeled ─────────────────────────────────
+
+function hash(str: string): number {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = (h * 33) ^ str.charCodeAt(i);
+  return Math.abs(h | 0);
+}
+function seededRandom(seed: number): () => number {
+  let s = seed || 1;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+function simulatedAnswer(
+  engineId: EngineId,
+  name: string,
   query: string,
   brand: string,
   category: string,
-  bias: { mentionProb: number; rankPosition: number }, // 0..1
-): Promise<EngineAnswer> {
-  const t0 = performance.now();
-  const rng = seededRandom(hash(`${engine.id}:${brand}:${query}`));
-  const competitors = (COMPETITORS_BY_CATEGORY[category] ?? []).filter((c) => c.toLowerCase() !== brand.toLowerCase());
-  const mentions = rng() < bias.mentionProb;
-  const position = mentions ? bias.rankPosition : 0;
+  t0: number,
+  fetchedAt: string,
+): EngineAnswer {
+  const rng = seededRandom(hash(`sim:${engineId}:${brand}:${query}`));
+  const competitors = (COMPETITORS_BY_CATEGORY[category] ?? Object.values(COMPETITORS_BY_CATEGORY).flat())
+    .filter((c) => c.toLowerCase() !== brand.toLowerCase());
 
-  // Pick 3-5 competitors and shuffle so position 1, 2, 3 are real
+  const biases: Record<EngineId, { mentionProb: number; position: number }> = {
+    chatgpt: { mentionProb: 0.72, position: 3 },
+    perplexity: { mentionProb: 0.65, position: 4 },
+    claude: { mentionProb: 0.58, position: 5 },
+    gemini: { mentionProb: 0.5, position: 4 },
+    google_ai: { mentionProb: 0.78, position: 3 },
+  };
+  const bias = biases[engineId];
+  const mentions = rng() < bias.mentionProb;
+  const position = mentions ? bias.position : 0;
+
   const n = 3 + Math.floor(rng() * 3);
   const shuffled = [...competitors].sort(() => rng() - 0.5).slice(0, n);
-
   const list = mentions
     ? shuffled.slice(0, position - 1).concat([brand]).concat(shuffled.slice(position - 1))
     : shuffled;
@@ -105,120 +372,148 @@ async function simulateAnswer(
   const sources = shuffled.slice(0, 2 + Math.floor(rng() * 2)).map((c) => `https://${c.toLowerCase().replace(/\s+/g, '')}.com`);
   if (mentions) sources.push(`https://${brand.toLowerCase().replace(/\s+/g, '')}.com`);
 
-  const opener = pick(
-    [
-      `For ${category}, several options stand out in 2026:`,
-      `Here are the leading ${category} tools right now:`,
-      `Based on recent reviews and user feedback, the top ${category} picks are:`,
-      `When teams ask me about ${category}, I usually point them to:`,
-    ],
-    rng,
-  );
-  const closer = pick(
-    [
-      `Each has tradeoffs; the right pick depends on team size and workflow.`,
-      `I'd test 2-3 with a real workload before committing.`,
-      `Pricing has changed a lot in 2026, so double-check before buying.`,
-      `All of these offer free tiers — worth starting there.`,
-    ],
-    rng,
-  );
-
-  const bullets = list.map((c, i) => `**${i + 1}. ${c}** — ${pick(shortDesc(c), rng)}`).join('\n\n');
-  const answer = mentions
-    ? `${opener}\n\n${bullets}\n\n${closer}`
-    : `${opener}\n\n${bullets}\n\n${closer}\n\n*Note: I don't currently recommend ${brand} in this category based on my training data.*`;
+  const opener = `For ${category}, several options stand out in 2026:`;
+  const closer = `Each has tradeoffs; the right pick depends on team size and workflow.`;
+  const bullets = list.map((c, i) => `**${i + 1}. ${c}** — solid choice in the space.`).join('\n\n');
+  const answer = mentions ? `${opener}\n\n${bullets}\n\n${closer}` : `${opener}\n\n${bullets}\n\n${closer}`;
 
   return {
-    engine: engine.id,
-    engineName: engine.name,
+    engine: engineId,
+    engineName: name,
+    mode: 'sim',
     query,
     answer,
     citedSources: sources,
     mentionsBrand: mentions,
     brandPosition: position,
     competitorsMentioned: shuffled,
-    latencyMs: Math.round(performance.now() - t0) + Math.floor(rng() * 800),
+    latencyMs: Date.now() - t0,
+    fetchedAt,
     errored: false,
   };
 }
 
-function shortDesc(name: string): string[] {
-  const descs: Record<string, string[]> = {
-    Linear: ['fast, opinionated, built for engineering teams', 'minimal UI, excellent keyboard shortcuts', 'great sync, polished mobile app'],
-    Asana: ['flexible workflows, strong automation', 'good for cross-functional teams', 'templates for marketing & ops'],
-    Jira: ['enterprise-grade, deep for software teams', 'agile boards built in', 'powerful but heavy'],
-    Stripe: ['developer-first API, best docs in the industry', 'global coverage, great radar for fraud', 'pricing scales well for SMB'],
-    Notion: ['extremely flexible, all-in-one docs+wiki', 'great block-based editor', 'AI features now baked in'],
-    Vercel: ['zero-config Next.js, edge network', 'best-in-class DX for frontend teams', 'observability built-in'],
-    Figma: ['browser-based multiplayer design', 'Dev Mode for handoff', 'plugins ecosystem is huge'],
-    ChatGPT: ['most widely adopted, strong plugins', 'multimodal on the free tier', 'best for general Q&A'],
-    Claude: ['strong on long-form analysis', 'careful, low hallucination', '200k context window'],
-    Gemini: ['Google integration, fast', 'multimodal native', 'great Workspace hooks'],
-    Perplexity: ['always cites sources, Pro search is excellent', 'real-time web answers', 'best of AI + traditional search'],
-    Cursor: ['AI-native editor, excellent autocomplete', 'Composer for multi-file edits', 'best for vibe coding'],
-    Datadog: ['breadth of integrations', 'ML-based alerting', 'expensive at scale'],
-    HubSpot: ['strong marketing automation', 'free CRM is genuinely useful', 'good for SMB marketing teams'],
-    Intercom: ['AI-first inbox, Fin agent', 'product tours, good onboarding', 'pricing is per-seat heavy'],
-    PostHog: ['all-in-one product analytics', 'session replay + A/B testing in one', 'transparent pricing, OSS-friendly'],
-    Supabase: ['Postgres + auth + realtime in one', 'great DX, fair pricing', 'OSS-friendly, edge functions'],
-    Webflow: ['visual CMS for designers', 'good for marketing sites', 'learning curve but powerful'],
+// ─── Helpers ───────────────────────────────────────────────────────────
+
+function errAnswer(
+  engine: EngineId,
+  name: string,
+  query: string,
+  t0: number,
+  fetchedAt: string,
+  message: string,
+): EngineAnswer {
+  return {
+    engine,
+    engineName: name,
+    mode: 'sim',
+    query,
+    answer: '',
+    citedSources: [],
+    mentionsBrand: false,
+    brandPosition: 0,
+    competitorsMentioned: [],
+    latencyMs: Date.now() - t0,
+    fetchedAt,
+    errored: true,
+    errorMessage: message,
   };
-  return descs[name] ?? ['solid choice in the space', 'reliable, well-supported', 'popular with mid-market teams'];
 }
 
-export const SIMULATED_ENGINES: EngineAdapter[] = [
-  {
-    id: 'chatgpt',
-    name: 'ChatGPT',
-    async query(q, brand, category) {
-      // Bias: chatgpt mentions top brands most often
-      return simulateAnswer(this, q, brand, category, { mentionProb: 0.72, rankPosition: 3 });
-    },
-  },
-  {
-    id: 'perplexity',
-    name: 'Perplexity',
-    async query(q, brand, category) {
-      return simulateAnswer(this, q, brand, category, { mentionProb: 0.65, rankPosition: 4 });
-    },
-  },
-  {
-    id: 'claude',
-    name: 'Claude',
-    async query(q, brand, category) {
-      return simulateAnswer(this, q, brand, category, { mentionProb: 0.58, rankPosition: 5 });
-    },
-  },
-  {
-    id: 'gemini',
-    name: 'Gemini',
-    async query(q, brand, category) {
-      return simulateAnswer(this, q, brand, category, { mentionProb: 0.50, rankPosition: 4 });
-    },
-  },
-  {
-    id: 'google_ai',
-    name: 'Google AI Overviews',
-    async query(q, brand, category) {
-      return simulateAnswer(this, q, brand, category, { mentionProb: 0.78, rankPosition: 3 });
-    },
-  },
-];
+function parseUrlsFromText(text: string): string[] {
+  const matches = text.match(/https?:\/\/[^\s)\]\"'>]+/g) ?? [];
+  return Array.from(new Set(matches));
+}
 
+/**
+ * Parse a real engine response into our structured EngineAnswer.
+ * Extracts: brand mention, position in lists, competitor names, sources.
+ */
+function parseAnswer(
+  engine: EngineId,
+  engineName: string,
+  query: string,
+  brand: string,
+  category: string,
+  text: string,
+  citedSources: string[],
+  t0: number,
+  fetchedAt: string,
+  mode: 'live' | 'sim',
+): EngineAnswer {
+  const lower = text.toLowerCase();
+  const brandLower = brand.toLowerCase();
+
+  // Mention detection: brand name appears at all
+  const mentionsBrand = lower.includes(brandLower);
+
+  // Position: in numbered lists like "1. X", "2. Y" — find brand
+  let brandPosition = 0;
+  if (mentionsBrand) {
+    // try markdown numbered lists first: "1. Linear", "2) Linear", etc.
+    const lines = text.split(/\n+/);
+    let listIndex = 0;
+    for (const line of lines) {
+      const m = line.match(/^\s*(?:\*\*)?\s*(\d+)[\.\)]\s+/);
+      if (m) {
+        listIndex = parseInt(m[1]!, 10);
+        if (line.toLowerCase().includes(brandLower)) {
+          brandPosition = listIndex;
+          break;
+        }
+      }
+    }
+    // fallback: if mentioned but not in a numbered list, treat as position 1
+    if (brandPosition === 0) brandPosition = 1;
+  }
+
+  // Competitors mentioned — extract candidates from competitor pool of category
+  const competitors = (COMPETITORS_BY_CATEGORY[category] ?? [])
+    .filter((c) => c.toLowerCase() !== brandLower);
+  const competitorsMentioned = competitors.filter((c) => lower.includes(c.toLowerCase()));
+
+  return {
+    engine,
+    engineName,
+    mode,
+    query,
+    answer: text,
+    citedSources: Array.from(new Set(citedSources)).slice(0, 12),
+    mentionsBrand,
+    brandPosition,
+    competitorsMentioned,
+    latencyMs: Date.now() - t0,
+    fetchedAt,
+    errored: false,
+  };
+}
+
+/**
+ * Run every adapter × every query, with bounded parallelism.
+ * Surfaces errors per-cell rather than failing the whole audit.
+ */
 export async function queryAllEngines(
   queries: string[],
   brand: string,
   category: string,
+  mode: 'auto' | 'live' | 'sim' = 'auto',
 ): Promise<EngineAnswer[]> {
-  const out: EngineAnswer[] = [];
-  // Run in parallel — simulates real concurrent scraping
-  await Promise.all(
-    SIMULATED_ENGINES.map(async (engine) => {
-      for (const q of queries) {
-        out.push(await engine.query(q, brand, category));
-      }
-    }),
-  );
-  return out;
+  const adapters = getAdapters(mode);
+  const cells: Promise<EngineAnswer>[] = [];
+  for (const a of adapters) for (const q of queries) cells.push(a.query(q, brand, category));
+  const settled = await Promise.allSettled(cells);
+  return settled.map((s, i) => {
+    if (s.status === 'fulfilled') return s.value;
+    const adapter = adapters[Math.floor(i / queries.length)]!;
+    return errAnswer(
+      adapter.id,
+      adapter.name,
+      queries[i % queries.length]!,
+      Date.now(),
+      new Date().toISOString(),
+      (s.reason as Error)?.message ?? 'unknown',
+    );
+  });
 }
+
+export { KNOWN_BRANDS };

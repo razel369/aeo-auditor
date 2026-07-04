@@ -29,14 +29,15 @@ export async function runAudit(
   db: Database.Database,
   brand: string,
   categoryHint?: string,
+  engineMode: 'auto' | 'live' | 'sim' = 'auto',
 ): Promise<{ id: string; report: AuditReport }> {
-  const { queries: genQueries } = (() => {
-    const all = generateQueries(brand, categoryHint);
-    return { queries: all.map((q) => q.text) };
-  })();
-  const category = (categoryHint?.trim() || (generateQueries(brand, categoryHint)[0]!.text.match(/best (\w[\w\s]*?) tools/) || [])[1] || 'software').trim();
-  const answers: EngineAnswer[] = await queryAllEngines(genQueries, brand, category);
-  const report = scoreAudit(brand, category, genQueries, answers);
+  const queries = generateQueries(brand, categoryHint).map((q) => q.text);
+  const category = (categoryHint?.trim() ||
+    Object.values(generateQueries(brand, categoryHint))[0]?.text.match(/best (\w[\w\s]*?) tools/)?.[1] ||
+    'software').trim();
+
+  const answers: EngineAnswer[] = await queryAllEngines(queries, brand, category, engineMode);
+  const report = scoreAudit(brand, category, queries, answers);
   const id = nanoid(10);
 
   db.prepare(
@@ -46,7 +47,7 @@ export async function runAudit(
     id,
     brand,
     category,
-    JSON.stringify(genQueries),
+    JSON.stringify(queries),
     JSON.stringify(answers),
     JSON.stringify(report),
     report.mentionRate,
