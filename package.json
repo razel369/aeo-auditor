@@ -1,0 +1,40 @@
+{
+  "name": "aeo-auditor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AEO (Answer Engine Optimization) audit-as-a-service. Tell us your brand, we run real queries against ChatGPT, Perplexity, Claude, Gemini, Google AI Overviews and show you how often you get mentioned, ranked, and how to fix it.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint",
+    "test": "vitest run",
+    "audit": "tsx scripts/run-audit.ts"
+  },
+  "dependencies": {
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "better-sqlite3": "^11.5.0",
+    "zod": "^3.23.8",
+    "cheerio": "^1.0.0",
+    "undici": "^6.20.1",
+    "tailwindcss": "^3.4.13",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "recharts": "^2.13.0",
+    "nanoid": "^5.0.7",
+    "@stripe/stripe-js": "^4.8.0",
+    "stripe": "^17.2.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.7.5",
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2",
+    "vitest": "^2.1.2"
+  }
+}
