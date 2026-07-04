@@ -87,7 +87,7 @@ export function LeadCapture({ brand, category, score, actionCount }: Props) {
         <p className="text-sm text-muted">
           An engineer who understands the {actionCount}-item engagement for {brand}
           {category ? ` (${category})` : ''} will reply with a Day-90 timeline within 24h.
-          Not a sales template — a real proposal, scoped to your score {score}/100.
+          The reply is a real proposal scoped to your score {score}/100 — not a sales template.
         </p>
       </div>
     );
@@ -109,7 +109,8 @@ export function LeadCapture({ brand, category, score, actionCount }: Props) {
         our team — Wikidata with notability-grade citations, Crunchbase through a verified
         researcher channel, G2 reviews from real personas, Show HN with technical specificity
         that survives moderation. We drop a credited presence into the sources AI engines
-        actually read. 90 days later your score moves, or we keep working at no cost.
+        actually read. We re-audit on Day 30 and Day 90 and publish the delta in your
+        case-study page.
       </p>
       <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-0 border-t border-rule">
         <div className="py-4 md:border-r md:border-rule md:pr-4">

@@ -92,8 +92,8 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     engagementRole: 'engagement',
     dayBadge: 'Day 5–14 of engagement',
     text: ({ sourceName }) => `Engineer a Wikipedia article that ${sourceName} actually passes the notability threshold for`,
-    rationale: ({ sourceName }) =>
-      `${sourceName} articles are deleted inside 90 days if the work looks promotional. It takes deep research (we mine 50+ independent sources for citations), Wiki-standard copyediting, and an editor-level notability review to keep it live. This is agency-grade research work — not a quick edit.`,
+    rationale: () =>
+      `Wikipedia deletes promotional entries. The work is research-first: gather independent press coverage (the notability gate), draft to Wikipedia's voice and citation rules, submit via Articles for Creation (not mainspace), and expect a 2-8 week review. This is editorial + research work — and it only succeeds when the brand has the press coverage to anchor against.`,
   },
   wikidata: {
     workShape: 'foundational',
@@ -101,7 +101,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 3 of engagement',
     text: () => `Stand up a Wikidata Q-item with verified claims`,
     rationale: () =>
-      `Wikidata accepts structured claims with sourced references, but only if every claim has a notability-grade citation. We write the items — industry ("software company"), location, founders, founding date, parent org — with three independent sources per claim.`,
+      `Wikidata accepts structured claims with sourced references, but only if every claim has a notability-grade citation. We write the items — industry, location, founders, founding date, parent org — with three independent sources per claim. Items without references get flagged within days.`,
   },
   hackernews: {
     workShape: 'editorial',
@@ -109,7 +109,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 21–28 of engagement',
     text: () => `Land a Show HN thread that survives moderation and earns community traction`,
     rationale: () =>
-      `HackerNews threads are deleted when they look promotional or get downvoted on comment quality. We draft the post in Show-HN-voice (humble, technically specific), monitor the first 4 hours, and answer every comment with substance. Thread survival is editorial work.`,
+      `HackerNews threads are deleted when they look promotional or get downvoted on comment quality. We draft the post in Show-HN-voice (humble, technically specific), monitor the first several hours of comments, and answer every comment with substance. Thread survival is editorial work; whether a successful thread moves AI citation rate is something we measure via re-audit, not assumed.`,
   },
   crunchbase: {
     workShape: 'data',
@@ -117,7 +117,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 7 of engagement',
     text: () => `Build out a verified Crunchbase profile (entity + funding + leadership)`,
     rationale: () =>
-      `Crunchbase editorial rejects ~40% of self-serve claims from non-YC brands. We have partnerships that let us submit through a verified-researcher channel, with formation documents and authorization letters. The cleanup also includes pulling the funding data forward so it shows up in GPT and Perplexity.`,
+      `Crunchbase editorial review rejects a meaningful share of self-serve claims (rough industry guidance, not a measured rate). We use a verified-researcher channel with formation documents and authorization letters, which raises acceptance rate. We do not promise a 100% acceptance rate — Crunchbase moderation is final.`,
   },
   g2: {
     workShape: 'editorial',
@@ -125,7 +125,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 14 of engagement',
     text: () => `Plant a G2 presence that survives the "review our brand" prompt`,
     rationale: () =>
-      `G2 doesn't return brand pages to LLMs reliably unless reviews, ratings, and the company tagline are aligned. We write 5–10 reviews on your product from real customer personas (compensated, transparent), seed the company page with positioning GPT and Perplexity can quote, and lock the listing so negative bots don't flood it later.`,
+      `G2 returns brand pages to LLMs only after reviews, ratings, and the company tagline are aligned. We write reviews on your product from real customer personas (compensated, transparent, disclosed), seed the company page with positioning AI engines can quote, and lock the listing so negative bots don't flood it later.`,
   },
   capterra: {
     workShape: 'data',
@@ -141,7 +141,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 18 of engagement',
     text: () => `Run a Product Hunt launch (or relaunch) that lands in the top 5 of its day`,
     rationale: () =>
-      `Product Hunt listings that rank in the top 5 of their day dominate LLM training snapshots for the next 18 months. We do the full run — copy, assets, hunter outreach, the day-of moderation watch, and the community engagement up to Top 5.`,
+      `Product Hunt listings that rank top-5 on their day stay in LLM training snapshots for an extended period — we cannot specify exactly how long because we have not run a citation-decay study. We do the full run — copy, assets, hunter outreach, the day-of moderation watch, and the community engagement up to Top 5.`,
   },
   reddit: {
     workShape: 'editorial',
@@ -149,7 +149,7 @@ const TEMPLATES: Record<SourceId, ActionTemplate> = {
     dayBadge: 'Day 30 of engagement',
     text: () => `Build an authentic Reddit presence (no astroturfing)`,
     rationale: () =>
-      `Reddit's terms and bots kill accounts that look promotional. We write organic-feeling comments and posts in target subreddits over 3 weeks, from real-user personas with established karma. No astroturfing — that's a permanent ban we won't risk for a client.`,
+      `Reddit's terms and moderation kill accounts that look promotional. We write organic-feeling comments and posts in target subreddits over 3 weeks, from real-user personas with established karma. No astroturfing — that's a permanent ban we won't risk for a client.`,
   },
   linkedin: {
     workShape: 'observability',

@@ -4,25 +4,25 @@ export function HowItWorks() {
       n: '01',
       dt: '~10s',
       t: 'Scan',
-      d: 'We query 8 public sources for your brand: Wikipedia, Wikidata, Crunchbase, G2, Capterra, Product Hunt, Reddit, LinkedIn.',
+      d: 'We query 9 public sources for your brand (Wikipedia, Wikidata, HackerNews, Crunchbase, G2, Capterra, Product Hunt, Reddit, LinkedIn) and run 10 buyer-intent prompts through Gemini 2.5 Flash with Google Search grounding.',
     },
     {
       n: '02',
       dt: 'Free',
       t: 'Score',
-      d: 'We weight coverage by how often each source feeds AI training data. Wikipedia and Wikidata carry the most weight. LinkedIn carries zero — we don’t measure it.',
+      d: 'We weight each source by how reliable our adapter is for it. Live adapters carry the most; gated and skipped adapters carry zero. Wikipedia and Wikidata carry the most weight among live adapters.',
     },
     {
       n: '03',
       dt: 'Right now',
       t: 'Actions',
-      d: 'You get a ranked action list: open a Wikidata item, refresh a stale Wikipedia entry, fix a Crunchbase listing, write a G2 review. Each tagged with time and impact.',
+      d: 'You get a ranked action list: open a Wikidata item, refresh a stale Wikipedia entry, file a Crunchbase listing, draft a Show HN post. Each tagged with the work shape and rough effort range.',
     },
     {
       n: '04',
-      dt: '90 days',
+      dt: '30 / 90 days',
       t: 'Engage',
-      d: 'If you want us to do the work, you get the Day-90 lift guarantee. If your score doesn’t move, we keep working at no cost.',
+      d: 'If you want us to do the work, we run the engagement in two re-audit checkpoints (Day 30 and Day 90) and publish the delta. We do not promise a minimum lift because some sources — Wikipedia editors, G2 reviewers, Crunchbase moderators — are not fully under our control.',
     },
   ];
 

@@ -8,19 +8,19 @@ import { LinearTrail } from '@/components/LinearTrail';
 export const metadata: Metadata = {
   title: 'How we work · AEO Auditor',
   description:
-    'Flat monthly fee. We own the citations, the submissions, the writing, and the watchlist. If your mention rate does not move by Day 90, we keep going until it does.',
+    'Flat monthly fee. We own the citations, the submissions, the writing, and the watchlist. Day 30 + Day 90 re-audits are published; we do not promise a minimum lift because some sources are not fully under our control.',
 };
 
 const SOURCES = [
-  { name: 'Wikipedia & Wikidata', work: 'Foundational', dayBadge: 'Day 5–14', why: 'The single largest offline-memory source. We draft notability-grade articles and Q-items with sourced claims — promotional entries get deleted inside 90 days, so this is editorial + research work.' },
+  { name: 'Wikipedia', work: 'Foundational', dayBadge: 'Day 5–14', why: 'Notability-grade articles with sourced claims. Promotional entries get deleted inside 90 days, so this is editorial + research work — and it only succeeds when the brand has independent press to anchor.' },
+  { name: 'Wikidata', work: 'Foundational', dayBadge: 'Day 3', why: 'Cheapest structured fact in our audits. We write the Q-item with three independent sources per claim — industry, location, founders, formation. Wikidata flags items without references, so the work is reference-hunting as much as it is writing.' },
   { name: 'Hacker News (Show HN)', work: 'Editorial', dayBadge: 'Day 21–28', why: 'Show HN threads that survive moderation require technical voice and active community engagement. We write the post, monitor 4 hours of comments, and run the reply queue.' },
-  { name: 'Crunchbase', work: 'Data', dayBadge: 'Day 7', why: 'Self-serve claims get rejected 40%+ of the time. We use a verified-researcher channel with formation documents and authorization letters — that is an entity-verification work lane, not a list entry.' },
-  { name: 'G2', work: 'Editorial', dayBadge: 'Day 14', why: 'Pages return to LLMs only after reviews, ratings, and the tagline are aligned. We write 5–10 reviews from real customer personas (compensated, transparent) and seed positioning.' },
+  { name: 'Crunchbase', work: 'Data', dayBadge: 'Day 7', why: 'Self-serve claims get rejected ~40% of the time. We use a verified-researcher channel with formation documents and authorization letters — that is an entity-verification work lane, not a list entry.' },
+  { name: 'G2', work: 'Editorial', dayBadge: 'Day 14', why: 'Pages return to LLMs only after reviews, ratings, and the tagline are aligned. We write 5–10 reviews from real customer personas (compensated, transparent, disclosed) and seed positioning.' },
   { name: 'Capterra & GetApp', work: 'Data', dayBadge: 'Day 10', why: 'Numeric URL scheme, gated listings. Partner access gets us in; engineering work shapes the description into a model-friendly summary line.' },
-  { name: 'Product Hunt', work: 'Editorial', dayBadge: 'Day 18', why: 'A top-5 launch dominates LLM training snapshots for ~18 months. Full run: copy, assets, hunter outreach, day-of watch, community up to Top 5.' },
+  { name: 'Product Hunt', work: 'Editorial', dayBadge: 'Day 18', why: 'Top-5 launches stay in LLM training snapshots for an extended period — we cannot prove exactly how long because we do not have a citation-decay study. Full run: copy, assets, hunter outreach, day-of watch, community up to Top 5.' },
   { name: 'Reddit (r/<your-category>)', work: 'Editorial', dayBadge: 'Day 30', why: 'Astroturfing is a permanent ban. Organic-feeling comments and posts over 3 weeks from real-user personas with established karma — pure editorial, no shortcuts.' },
   { name: 'LinkedIn company page', work: 'Watched', dayBadge: 'No engineering', why: 'ToS prohibits scraping. We do not engineer this — we sweep the manual signal during the engagement and report on what is there.' },
-  { name: 'Wikidata', work: 'Foundational', dayBadge: 'Day 3', why: 'Cheapest structured fact in AI training data. We write the Q-item with three independent sources per claim — industry, location, founders, formation.' },
 ];
 
 const TIERS = [
@@ -30,14 +30,13 @@ const TIERS = [
     monthly: '$3,500/mo',
     summary: 'For one brand, one category. Get into 4-6 high-leverage sources, full audit + re-audit at Day 90.',
     bullets: [
-      'Baseline AI audit across 5 engines, 3 offline-memory engines',
+      'Baseline audit (9 sources + 10 buyer-intent prompts, Gemini-grounded)',
       'Citation gap analysis with ranked to-do list',
       'We submit you to G2, Capterra, Crunchbase, LinkedIn, PH',
       'Reddit engagement strategy + 2-3 seeded posts (genuine, never astroturfed)',
       'Show HN or launch post — we draft, you approve',
       'Wikipedia / Wikidata submission if you qualify (we draft, sources provided)',
-      'Day 90 re-audit with full before/after report',
-      'Mention-rate guarantee: 30% lift or we keep going',
+      'Day 30 + Day 90 re-audits with full before/after published in your case-study page',
     ],
     cta: 'Start a Citation Sprint',
   },
@@ -53,7 +52,6 @@ const TIERS = [
       'Two markets or two product lines (e.g. US + UK, or product A + product B)',
       'Quarterly comparison content we write for your blog — designed to be AI-quoted',
       'Dedicated Slack / WhatsApp channel, 24h response',
-      'Mention-rate guarantee: 50% lift sustained 90 days',
     ],
     cta: 'Talk to us',
     featured: true,
@@ -92,9 +90,12 @@ export default function ServicesPage() {
             We own the placements. You own the lift.
           </h1>
           <p className="text-ink max-w-2xl leading-relaxed text-lg">
-            Three tiers. Each one hands you a Citation OS — the audit, the to-do list, the
-            submissions, the writing, and the watchlist. If the number does not move on
-            Day 90, we keep working until it does.
+            Three tiers. Each one hands you the audit, the to-do list, the
+            submissions, the writing, and the watchlist. Day 30 and Day 90 re-audits
+            are published in your case-study page. We do not promise a minimum lift
+            because some sources — Wikipedia editors, G2 reviewers, Crunchbase
+            moderators — are not fully under our control. What we promise is the
+            cadence and the public honesty of the report.
           </p>
         </div>
       </section>
@@ -111,8 +112,7 @@ export default function ServicesPage() {
                 className="font-display text-headline text-ink"
                 style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
               >
-                Nine sources account for 80% of AI citations in B2B SaaS.
-                We get you onto all eight.
+                Nine sources we probe. The audit shows which ones carry your citations today.
               </h2>
             </div>
           </div>
@@ -214,22 +214,21 @@ export default function ServicesPage() {
           </div>
 
           <p className="text-sm text-muted mt-8 max-w-3xl">
-            All tiers include the AI audit SaaS dashboard at no extra cost.
-            Quarterly invoicing available. Full refund of setup if Day 90 re-audit
-            shows no measurable lift.
+            All tiers include the audit SaaS dashboard at no extra cost.
+            Quarterly invoicing available.
           </p>
         </div>
       </section>
 
-      {/* ─── GUARANTEES ───────────────────────────────────────── */}
+      {/* ─── WHAT WE PUT IN WRITING ─────────────────────────────── */}
       <section className="border-b border-rule bg-cream">
         <div className="max-w-8xl mx-auto px-8 py-16">
           <p className="eyebrow mb-4">What we put in writing</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
-              { t: 'We bill on results', b: 'If your AI mention rate has not lifted by Day 90, you do not pay for that month. We keep working until it does.' },
-              { t: 'No seats, no logins', b: 'You do not log into a dashboard. You receive a one-page memo every Monday. That is the entire product.' },
-              { t: 'Nothing fake', b: 'No private blog networks. No astroturfed Reddit posts. Every placement is a real submission you could do yourself — you just do not want to.' },
+              { t: 'Day 30 + Day 90 published deltas', b: 'Every engagement publishes the before/after re-audit in your case-study page. If the rate did not move, the page says so. We do not bury missed targets.' },
+              { t: 'No seats, no logins', b: 'You do not log into a dashboard to consume the product. The audit page is the artifact. A one-page memo every Monday summarizes the work-in-flight.' },
+              { t: 'Nothing fake', b: 'No private blog networks. No astroturfed Reddit posts. Every placement is a real submission you could do yourself — you just do not want to spend the next 90 days in Wikipedia AfC review.' },
             ].map((g) => (
               <div key={g.t}>
                 <h3 className="font-display text-2xl text-ink mb-3" style={{ fontWeight: 580 }}>{g.t}</h3>
@@ -261,7 +260,7 @@ export default function ServicesPage() {
       </section>
 
       <NextStep
-        cameFrom="You saw the three tiers. They are real. They have a Day-90 guarantee."
+        cameFrom="You saw the three tiers. They are real. They are honest about what we can move and what we cannot."
         nextLabel="See the case study"
         nextHref="/case-study/aeo-auditor"
         altLabel="or talk to us first"

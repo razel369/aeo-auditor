@@ -319,6 +319,16 @@ export interface TrendResult {
   };
 }
 
+export async function getLatestAudit(brand: string): Promise<AuditRow | null> {
+  const c = getDb();
+  const res = await c.execute({
+    sql: `SELECT * FROM audits WHERE brand = ? ORDER BY created_at DESC LIMIT 1`,
+    args: [brand],
+  });
+  const row = res.rows[0] as unknown as AuditRow | undefined;
+  return row ?? null;
+}
+
 export async function getTrend(brand: string, weeks = 12): Promise<TrendResult> {
   const c = getDb();
   const res = await c.execute({

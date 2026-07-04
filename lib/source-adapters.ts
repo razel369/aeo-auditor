@@ -117,7 +117,7 @@ function wikipediaAdapter(): SourceAdapter {
     id: 'wikipedia',
     name: 'Wikipedia',
     mode: 'live',
-    rationale: 'MediaWiki API — public, free, structured. Most-cited single source in LLM training.',
+    rationale: 'MediaWiki API — public, free, structured. Frequently cited in LLM training corpora (per multiple AEO vendor blogs; we have not run a citation-rate study ourselves).',
     async scan(brand, category) {
       const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=info|pageprops|extracts&exintro=1&explaintext=1&redirects=1&titles=${encodeURIComponent(brand)}`;
       const r = await safeFetch(url);
@@ -430,7 +430,7 @@ function hackernewsAdapter(): SourceAdapter {
           notes.push(`Established thread — top hit ${topHitAgeDays} days old (steady citation source, not stale)`);
         }
         if (hasShowHN) {
-          notes.push('Includes at least one "Show HN" thread — strongest possible signal');
+          notes.push('Includes at least one "Show HN" thread — high-engagement signal');
         }
       } else {
         notes.push('No HackerNews presence for this brand');

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { getPersistedReport, getAuditHistoryForBrand, compareAudits } from '@/lib/source-audit';
+import { MethodologyNote } from '@/components/MethodologyNote';
 
 export const dynamic = 'force-dynamic';
 
@@ -172,6 +173,12 @@ export default async function SourceAuditReportPage({ params }: { params: Promis
 
       {/* ENGINE PROBE — what AI engines actually cite today (v0.6) */}
       {report.engine && <EngineProbeSection engine={report.engine} brand={report.brand} />}
+
+      <section className="border-b border-rule bg-paper">
+        <div className="max-w-8xl mx-auto px-8 py-10">
+          <MethodologyNote variant="block" />
+        </div>
+      </section>
 
       {/* COMPETITORS — share of voice vs known players (v0.7) */}
       {report.competitors && report.competitors.competitors.length > 0 && (

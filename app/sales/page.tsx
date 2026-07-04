@@ -132,8 +132,8 @@ export default function SalesPage() {
             </li>
             <li>
               <strong>Day 60-90 &mdash; re-audit.</strong> We run the same audit
-              again. If your mention rate has not lifted, we keep working for free
-              until it does. That clause is in the contract.
+              again. The before/after is published in your case-study page. If the
+              rate did not move, the page says so — we do not bury missed targets.
             </li>
             <li>
               <strong>Day 90+ &mdash; watchlist.</strong> Monthly re-audits. If a
@@ -188,10 +188,10 @@ export default function SalesPage() {
           </h2>
 
           <p>
-            Run a free audit. Read the report. If the gap is interesting — and the
-            gap is interesting at 90% of the brands we audit — schedule a 30-minute
-            call. We will walk you through the to-do list and tell you which tier
-            actually fits.
+            Run a free audit. Read the report. If the gap is interesting, schedule
+            a 30-minute call. We will walk you through the to-do list and tell you
+            honestly whether the engagement moves the needle for your stage or whether
+            a few specific actions would do the same.
           </p>
 
           <div className="pt-12 border-t border-rule mt-12 flex flex-col md:flex-row gap-4">

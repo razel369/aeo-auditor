@@ -5,6 +5,7 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { NextStep } from '@/components/NextStep';
 import { LinearTrail } from '@/components/LinearTrail';
+import { getLatestAudit } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,8 +29,8 @@ const STUDIES: Record<string, CaseStudy> = {
       mentionRate: 0.08,
       weightedRate: 0.04,
       offlineMemory: 0.0,
-      engines: 8,
-      topSources: ['reddit.com/r/SEO', 'news.ycombinator.com'],
+      engines: 1,
+      topSources: ['news.ycombinator.com'],
     },
     target: { mentionRate: 0.55, weightedRate: 0.45, offlineMemory: 0.30 },
     placements: [
@@ -43,11 +44,11 @@ const STUDIES: Record<string, CaseStudy> = {
       { source: 'Reddit r/SEO + r/Entrepreneur', status: 'in progress', date: '—', detail: 'Genuine engagement strategy. First post next week.' },
     ],
     wins: [
-      { date: 'Jul 4, 2026', what: 'Day-1 baseline audit captured: 8% mention rate, 0% offline memory across ChatGPT/Perplexity/Claude/Gemini.' },
-      { date: 'Jul 4, 2026', what: 'Citation OS dashboard deployed to production (5-engine audit, weighted rate, citation gap).' },
+      { date: 'Jul 4, 2026', what: 'Day-1 baseline audit captured: 8% mention rate, 0% offline memory across the engines we probe.' },
+      { date: 'Jul 4, 2026', what: 'Citation OS dashboard deployed to production (engine audit, weighted rate, citation gap).' },
       { date: 'Jul 4, 2026', what: 'This case study page shipped as a public commitment — read by future clients and by our future selves.' },
     ],
-    memo: 'We are using our own audit SaaS as the Dogfood test. If the engine says "yes" to this case study, by the end of the quarter, the agency and the SaaS will both have a deeper moat than we had on Day 1.',
+    memo: 'We are using our own audit SaaS as the Dogfood test. The target and lift numbers below are aspirations, not historical data — Day-90 has not elapsed yet. We will revisit this page at Day 30 / Day 60 / Day 90 and either publish the real delta or honestly report that we missed.',
   },
 };
 
@@ -69,6 +70,12 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
   const { brand: slug } = await params;
   const study = STUDIES[slug];
   if (!study) notFound();
+
+  const latest = await getLatestAudit(study.brand).catch(() => null);
+  const liveMention = latest ? Math.round(latest.mention_rate * 100) : null;
+  const liveWeighted = latest ? Math.round((latest.weighted_mention_rate ?? 0) * 100) : null;
+  const liveOffline = latest ? Math.round((latest.offline_memory_rate ?? 0) * 100) : null;
+  const liveAt = latest ? new Date(latest.created_at).toISOString().slice(0, 10) : null;
 
   const lift = (study.target.mentionRate - study.baseline.mentionRate) * 100;
 
@@ -92,28 +99,34 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12 pt-10 border-t border-ink text-sm">
             <div>
-              <p className="eyebrow mb-2">Baseline mention rate</p>
+              <p className="eyebrow mb-2">Live mention rate</p>
               <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
-                {Math.round(study.baseline.mentionRate * 100)}<span className="text-2xl text-muted">%</span>
+                {liveMention === null ? '—' : `${liveMention}`}<span className="text-2xl text-muted">{liveMention === null ? '' : '%'}</span>
               </p>
+              <p className="text-xs text-muted font-data mt-1">
+                {liveAt ? `re-run ${liveAt}` : 'no audit yet · run /audit'}
+              </p>
+            </div>
+            <div>
+              <p className="eyebrow mb-2">Weighted rate (live)</p>
+              <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
+                {liveWeighted === null ? '—' : `${liveWeighted}`}<span className="text-2xl text-muted">{liveWeighted === null ? '' : '%'}</span>
+              </p>
+              <p className="text-xs text-muted font-data mt-1">cites ranked by position</p>
             </div>
             <div>
               <p className="eyebrow mb-2">Target by Day 90</p>
               <p className="font-display text-5xl text-ok" style={{ fontWeight: 580 }}>
                 {Math.round(study.target.mentionRate * 100)}<span className="text-2xl text-muted">%</span>
               </p>
+              <p className="text-xs text-muted font-data mt-1">aspirational · not historical</p>
             </div>
             <div>
-              <p className="eyebrow mb-2">Target lift</p>
-              <p className="font-display text-5xl text-ok" style={{ fontWeight: 580 }}>
-                +{lift.toFixed(0)}<span className="text-2xl text-muted">pp</span>
-              </p>
-            </div>
-            <div>
-              <p className="eyebrow mb-2">Offline memory target</p>
+              <p className="eyebrow mb-2">Offline memory</p>
               <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
-                {Math.round(study.target.offlineMemory * 100)}<span className="text-2xl text-muted">%</span>
+                {liveOffline === null ? '—' : `${liveOffline}`}<span className="text-2xl text-muted">{liveOffline === null ? '' : '%'}</span>
               </p>
+              <p className="text-xs text-muted font-data mt-1">live · Gemini-grounded proxy</p>
             </div>
           </div>
         </div>
@@ -143,15 +156,15 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-8 pt-10 border-t border-ink">
                 <div>
                   <p className="eyebrow mb-2">Coverage score</p>
-                  <p className="font-display text-7xl text-signal leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>29<span className="text-2xl text-muted">/100</span></p>
-                  <p className="text-xs text-muted font-data mt-2">Day 0, July 2026</p>
+                  <p className="font-display text-7xl text-signal leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>{liveMention === null ? '—' : liveMention}<span className="text-2xl text-muted">/100</span></p>
+                  <p className="text-xs text-muted font-data mt-2">{liveAt ? `from audit ${liveAt}` : 'no audit yet'}</p>
                 </div>
                 <div>
                   <p className="eyebrow mb-2">Sources cited</p>
                   <p className="font-display text-7xl text-ink leading-none" style={{ fontWeight: 580 }}>
-                    4<span className="text-2xl text-muted">/9</span>
+                    {liveMention === null ? '—' : Math.min(9, Math.max(0, Math.round((liveMention / 100) * 9)))}<span className="text-2xl text-muted">/9</span>
                   </p>
-                  <p className="text-xs text-muted font-data mt-2">2 live · 5 engineered · 2 watched</p>
+                  <p className="text-xs text-muted font-data mt-2">approximation · re-run for exact count</p>
                 </div>
                 <div>
                   <p className="eyebrow mb-2">Top work shape</p>
@@ -161,9 +174,9 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
                   <p className="font-data text-signal mt-1.5">Day 3 of engagement · +15 pts</p>
                 </div>
                 <div>
-                  <p className="eyebrow mb-2">Day-90 target</p>
+                  <p className="eyebrow mb-2">Day-90 target (aspirational)</p>
                   <p className="font-display text-7xl text-ok leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>90<span className="text-2xl text-muted">/100</span></p>
-                  <p className="text-xs text-muted font-data mt-2">or we keep working</p>
+                  <p className="text-xs text-muted font-data mt-2">not historical · revisited at Day 30 / 60 / 90</p>
                 </div>
               </div>
 

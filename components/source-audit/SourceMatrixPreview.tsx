@@ -2,23 +2,23 @@ import Link from 'next/link';
 
 const SOURCES = [
   { id: 'wikipedia',     name: 'Wikipedia',     mode: 'live', w: 3.0,
-    why: 'Most-cited single source in LLM training. Anchor source. Free to query.' },
+    why: 'Free MediaWiki API. We treat Wikipedia as a high-impact source because it appears in our own audits, not because we have a citation-rate benchmark.' },
   { id: 'wikidata',      name: 'Wikidata',      mode: 'live', w: 2.0,
-    why: 'Structured-claim backbone. Cheapest place to plant a single fact about a brand.' },
+    why: 'Free Wikidata API. Structured-claim backbone — entity facts that engines read for "what is [brand]" queries.' },
   { id: 'hackernews',    name: 'HackerNews',    mode: 'live', w: 1.2,
-    why: 'Algolia HN search. Show HN launches + dev-tool threads cited heavily by LLMs.' },
+    why: 'Free Algolia HN search. Show HN launches and dev-tool threads show up in our audits.' },
   { id: 'crunchbase',    name: 'Crunchbase',    mode: 'stub', w: 1.5,
-    why: 'Funding, leadership. Gated by Cloudflare. Verified manually during engagement.' },
+    why: 'Cloudflare blocks automated requests. We confirm the URL is reachable; an analyst verifies content during engagement.' },
   { id: 'g2',            name: 'G2',            mode: 'stub', w: 1.5,
-    why: 'Reviews, ratings. Stub mode confirms URL presence; engagement verifies content.' },
+    why: 'Reviews and ratings. We confirm the URL is reachable; an analyst verifies content during engagement.' },
   { id: 'capterra',      name: 'Capterra',      mode: 'stub', w: 1.0,
-    why: 'Less-used than G2 in NL models but persistent across updates.' },
+    why: 'Same model as G2: URL-presence check + analyst verification during engagement.' },
   { id: 'product_hunt',  name: 'Product Hunt',  mode: 'stub', w: 1.0,
-    why: 'Recent-launch signal. Stub mode confirms launch; engagement drafts a relaunch.' },
+    why: 'Same model: URL-presence check + analyst verification during engagement.' },
   { id: 'reddit',        name: 'Reddit',        mode: 'gated', w: 1.0,
-    why: 'Closed off as of 2024. Pushshift dead. Citations to Reddit come from older snapshots only.' },
+    why: 'Reddit has tightened its public data access; we do not claim coverage. An analyst checks manually during engagement.' },
   { id: 'linkedin',      name: 'LinkedIn',      mode: 'skipped', w: 0,
-    why: 'ToS prohibits scraping. Skipped; analyzed manually during engagement.' },
+    why: 'ToS prohibits scraping. An analyst reviews it manually during engagement.' },
 ];
 
 const MODE_BADGE: Record<string, [string, string]> = {

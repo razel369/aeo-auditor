@@ -37,9 +37,9 @@ export function AuditHero() {
             about you.
           </h1>
           <p className="text-xl text-ink max-w-3xl mb-12 leading-snug">
-            Nine sources. The ones LLMs actually train on. We check whether your
-            brand is cited on each — and we put an{' '}
-            <span className="font-data text-ok" style={{ fontWeight: 500 }}>actionable fix list</span>{' '}
+            Nine public sources and ten buyer-intent prompts. We check whether your
+            brand is present and cited — and we put a{' '}
+            <span className="font-data text-ok" style={{ fontWeight: 500 }}>source list + share-of-voice</span>{' '}
             in front of you.
           </p>
           <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 max-w-3xl">
@@ -92,12 +92,14 @@ export function AuditHero() {
           <div className="mt-10 max-w-3xl pt-8 border-t border-rule">
             <p className="eyebrow text-muted mb-3">Read this first</p>
             <p className="text-base text-ink leading-relaxed">
-              The audit ranks 9 public sources that AI engines train on. A clean audit
-              doesn't mean a clean fix list. Most missing sources require research and
-              editing to land credibly — Wikidata items need notability-grade citations,
-              Crunchbase listings go through verification, Show HN threads need technical
-              voice that survives moderation. The score tells you the gap. Closing the gap
-              is what we sell, on a Day-90 engagement with a lift guarantee.
+              The audit ranks 9 public sources and probes Gemini 2.5 Flash with Google Search
+              grounding as a proxy for ChatGPT Search, Perplexity, and Google AI Overviews. A
+              clean audit does not mean a clean fix list. Most missing sources require research
+              and editing to land credibly — Wikidata items need notability-grade citations,
+              Crunchbase listings go through verification, Show HN threads need technical voice
+              that survives moderation. The score tells you the gap. Closing the gap is the
+              agency engagement — sold separately, with a Day-30 / Day-90 cadence and a
+              published before/after.
             </p>
           </div>
         </div>

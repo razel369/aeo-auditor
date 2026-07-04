@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { CitationCoverageReport } from '@/lib/source-scoring';
 import type { SourceProfile } from '@/lib/source-adapters';
 import { LeadCapture } from './LeadCapture';
+import { MethodologyNote } from '@/components/MethodologyNote';
 
 type ActionItem = CitationCoverageReport['actions'][number];
 
@@ -241,6 +242,13 @@ function ReportView({ report }: { report: ReportResult }) {
 
       {/* ENGINE PROBE STRIP — what AI engines actually cite today */}
       {report.engine && <EngineProbeStrip engine={report.engine} brand={report.brand} />}
+
+      {/* METHODOLOGY DISCLOSURE */}
+      <section className="border-b border-rule bg-paper">
+        <div className="max-w-8xl mx-auto px-8 py-10">
+          <MethodologyNote variant="block" />
+        </div>
+      </section>
 
       {/* COMPETITOR + DRIFT (v0.7) */}
       {report.competitors && report.competitors.competitors.length > 0 && (
