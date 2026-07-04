@@ -14,8 +14,9 @@ const STEPS: Step[] = [
   { n: 1, label: 'See the gap', href: '/audit', match: (p) => p.startsWith('/audit') },
   { n: 2, label: 'See our work', href: '/case-study/aeo-auditor', match: (p) => p.startsWith('/case-study') },
   { n: 3, label: 'See the offer', href: '/services', match: (p) => p.startsWith('/services') },
-  { n: 4, label: 'Talk to us', href: '/contact', match: (p) => p.startsWith('/contact') || p.startsWith('/onboarding') },
-  { n: 5, label: 'Get started', href: '/onboarding/welcome', match: (p) => p === '/onboarding/welcome' || p === '/onboarding/baseline' },
+  { n: 4, label: 'Read the memo', href: '/sales', match: (p) => p.startsWith('/sales') },
+  { n: 5, label: 'Talk to us', href: '/contact', match: (p) => p.startsWith('/contact') || p.startsWith('/onboarding') },
+  { n: 6, label: 'Get started', href: '/onboarding/welcome', match: (p) => p === '/onboarding/welcome' || p === '/onboarding/baseline' },
 ];
 
 interface Props {
