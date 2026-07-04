@@ -2,297 +2,404 @@ import Link from 'next/link';
 import { listRecentAudits } from '@/lib/audits';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Stat } from '@/components/Number';
 
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
   let recent: Awaited<ReturnType<typeof listRecentAudits>> = [];
   try {
-    recent = await listRecentAudits(6);
+    recent = await listRecentAudits(4);
   } catch {}
 
   return (
     <main>
       <SiteHeader />
 
-      {/* ─── HERO — AGENCY ─────────────────────────────────────── */}
-      <section className="border-b border-rule">
-        <div className="max-w-8xl mx-auto px-8 pt-20 pb-24">
-          <div className="grid grid-cols-12 gap-x-6">
-            {/* Left 7 cols */}
-            <div className="col-span-12 md:col-span-7">
-              <p className="eyebrow mb-8">AI Citation Agency · Est. 2026</p>
-              <h1
-                className="font-display text-display mb-8 rise-in"
-                style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+      {/* ─── HERO — single focal point ───────────────────────────── */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-8xl mx-auto px-8 pt-28 pb-32 md:pt-40 md:pb-48">
+          <div className="max-w-5xl">
+            <p className="eyebrow text-signal mb-10">Issue 01 · AI citation agency</p>
+            <h1
+              className="font-display text-display text-ink mb-12 leading-[0.95] rise-in"
+              style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+            >
+              We get your brand{' '}
+              <span className="italic" style={{ fontVariationSettings: "'opsz' 144, 'SOFT' 80, 'WONK' 1" }}>
+                into
+              </span>{' '}
+              the AI answers.
+            </h1>
+            <p className="text-2xl text-ink max-w-3xl mb-14 leading-snug">
+              Wikipedia, G2, Crunchbase, Reddit, Hacker News, Product Hunt.
+              Six sources. We get you cited on all of them, and we put a{' '}
+              <span className="font-data text-ok" style={{ fontWeight: 500 }}>Day-90 lift guarantee</span>{' '}
+              on it.
+            </p>
+            <div className="flex flex-wrap items-center gap-5">
+              <Link
+                href="/contact"
+                className="group inline-flex items-center gap-4 px-10 py-5 bg-ink text-paper uppercase tracking-eyebrow text-sm hover:bg-signal transition-colors"
               >
-                We get your brand <span className="italic">into</span> the AI answers.
-              </h1>
-              <p className="text-lg text-ink max-w-xl leading-relaxed mb-10">
-                Not audited. <em>Cited.</em> We get you onto the Wikipedia, G2,
-                Reddit, Hacker News, and Crunchbase pages that ChatGPT, Perplexity,
-                Claude, and Gemini actually read — and we leave you there.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-4 mb-8">
-                <Link
-                  href="/services"
-                  className="inline-flex items-center gap-3 px-8 py-4 bg-ink text-paper uppercase tracking-eyebrow hover:bg-signal transition-colors"
-                >
-                  See how we work
-                  <span aria-hidden>→</span>
-                </Link>
-                <Link
-                  href="/audit"
-                  className="inline-flex items-center gap-3 px-8 py-4 border border-ink text-ink uppercase tracking-eyebrow hover:bg-ink hover:text-paper transition-colors"
-                >
-                  Free audit
-                </Link>
-              </div>
-              <p className="text-xs text-muted font-data">
-                Want a free AI audit of your brand first? It takes ninety seconds and lives forever at /audit.
-              </p>
+                Send us your brand
+                <span aria-hidden className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+              <Link
+                href="/audit"
+                className="text-sm text-ink hover:text-signal uppercase tracking-eyebrow underline decoration-rule underline-offset-4 hover:decoration-signal"
+              >
+                or run a free 90-second audit
+              </Link>
             </div>
-
-            {/* Right 5 cols — what we do, plain */}
-            <aside className="col-span-12 md:col-span-5 md:pl-12 mt-12 md:mt-0 border-l border-rule md:pl-8">
-              <div className="space-y-10">
-                <div>
-                  <p className="eyebrow mb-3">What we do, for a flat monthly fee</p>
-                  <ul className="space-y-2 text-sm leading-relaxed">
-                    <li className="flex gap-3"><span className="font-data text-signal">01</span><span>Land your company on the AI engines&apos; favorite sources</span></li>
-                    <li className="flex gap-3"><span className="font-data text-signal">02</span><span>Write the comparison content ChatGPT quotes</span></li>
-                    <li className="flex gap-3"><span className="font-data text-signal">03</span><span>Submit you to G2, Capterra, Product Hunt, Crunchbase</span></li>
-                    <li className="flex gap-3"><span className="font-data text-signal">04</span><span>Get you cited on Wikipedia and Wikidata where you qualify</span></li>
-                    <li className="flex gap-3"><span className="font-data text-signal">05</span><span>Watchlist your competitors and re-trigger engines monthly</span></li>
-                  </ul>
-                </div>
-
-                <div>
-                  <p className="eyebrow mb-3">For</p>
-                  <p className="text-sm leading-relaxed">
-                    CMOs and growth leads at $1M–$50M ARR B2B SaaS companies who
-                    notice organic traffic falling off a cliff and have no idea
-                    whether AI engines are mentioning them at all.
-                  </p>
-                </div>
-              </div>
-            </aside>
           </div>
+        </div>
+
+        {/* hairline divider */}
+        <div className="max-w-8xl mx-auto px-8">
+          <div className="border-t border-ink" />
         </div>
       </section>
 
-      {/* ─── WHAT WE'RE NOT ─────────────────────────────────────── */}
-      <section className="border-b border-rule bg-cream">
-        <div className="max-w-8xl mx-auto px-8 py-14">
-          <div className="grid grid-cols-12 gap-x-6 items-center">
-            <div className="col-span-12 md:col-span-7">
-              <p className="eyebrow mb-3 text-signal">We are not</p>
-              <p
-                className="font-display text-3xl text-ink leading-tight"
-                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
-              >
-                An SEO agency. A content shop. A chatbot plugin. A SaaS dashboard
-                that emails you a PDF and leaves you to do the work.
-              </p>
-            </div>
-            <aside className="col-span-12 md:col-span-5 md:pl-8 mt-8 md:mt-0 md:border-l md:border-rule">
-              <p className="text-ink leading-relaxed">
-                We are the only agency in the world that <em>measures</em> the
-                outcome against live AI engines and <em>owns</em> the placements
-                that move the needle. Either your brand appears in the answers we
-                targeted, or the engagement is open until it does.
-              </p>
-            </aside>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── THE CYCLE — what we do, in 4 steps ─────────────────── */}
-      <section className="border-b border-rule">
+      {/* ─── SOCIAL PROOF — the one number that matters ─────────── */}
+      <section className="bg-cream border-b border-rule">
         <div className="max-w-8xl mx-auto px-8 py-20">
-          <div className="grid grid-cols-12 gap-x-6 mb-12">
+          <div className="grid grid-cols-12 gap-x-6 items-end">
+            <div className="col-span-12 md:col-span-7">
+              <p className="eyebrow mb-6 text-signal">Our own dogfood, Day 1 vs. Day 90 target</p>
+              <div className="flex flex-wrap items-baseline gap-x-12 gap-y-6 mb-8">
+                <div>
+                  <p
+                    className="font-display text-ink leading-none"
+                    style={{ fontSize: 'clamp(96px, 14vw, 180px)', fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+                  >
+                    8<span className="text-muted" style={{ fontSize: '0.45em' }}>%</span>
+                  </p>
+                  <p className="eyebrow mt-2 text-muted">Day 1 · mention rate</p>
+                </div>
+                <span className="font-display text-muted text-5xl self-center" aria-hidden style={{ fontWeight: 400 }}>→</span>
+                <div>
+                  <p
+                    className="font-display text-ok leading-none"
+                    style={{ fontSize: 'clamp(96px, 14vw, 180px)', fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+                  >
+                    62<span className="text-ok/60" style={{ fontSize: '0.45em' }}>%</span>
+                  </p>
+                  <p className="eyebrow mt-2 text-ok">Day 90 · target</p>
+                </div>
+              </div>
+              <p className="text-lg text-ink max-w-2xl leading-relaxed">
+                We are running the same playbook on ourselves that we run on clients.
+                Public log at{' '}
+                <Link href="/case-study/aeo-auditor" className="underline decoration-signal underline-offset-4 hover:text-signal">
+                  /case-study/aeo-auditor
+                </Link>
+                . No smoke and mirrors — the gap is real, the work is logged, the number is measured.
+              </p>
+            </div>
+            <aside className="col-span-12 md:col-span-4 md:col-start-9 mt-12 md:mt-0 md:pl-8 md:border-l md:border-rule">
+              <p className="eyebrow mb-4">What gets measured</p>
+              <ul className="space-y-4 text-sm">
+                <li className="flex gap-3">
+                  <span className="font-data text-signal shrink-0">01</span>
+                  <span><strong>Mention rate</strong> — does ChatGPT, Perplexity, Claude, Gemini, Google AI name you at all?</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-data text-signal shrink-0">02</span>
+                  <span><strong>Weighted rate</strong> — opening-sentence mentions count 4×. Mid-paragraph count half.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-data text-signal shrink-0">03</span>
+                  <span><strong>Offline memory</strong> — what ChatGPT-3.5, DeepSeek, and Kimi say with web search off.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-data text-signal shrink-0">04</span>
+                  <span><strong>The Citation Gap</strong> — the 6–8 sources AI engines cite that you are not on.</span>
+                </li>
+              </ul>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── THE FOUR STEPS — timeline with connecting line ─────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-24">
+          <div className="grid grid-cols-12 gap-x-6 mb-16">
             <div className="col-span-12 md:col-span-2">
-              <p className="eyebrow">The cycle, in 4 steps</p>
+              <p className="eyebrow">How we work</p>
             </div>
             <div className="col-span-12 md:col-span-10">
               <h2
                 className="font-display text-headline text-ink"
                 style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
               >
-                We audit you on Day 1. We get you cited by Day 30. We measure on Day 90.
+                Four steps. Each has a deliverable. Each takes days, not months.
               </h2>
             </div>
           </div>
 
-          <ol className="border-t border-ink">
-            {[
-              { n: '01', t: 'Baseline audit', b: 'A free 90-second AI audit across 5 engines, with weighted mention rate by sentence position. You see the gap honestly.' },
-              { n: '02', t: 'Citation gap analysis', b: 'We map every source AI engines cite in your category, cross-reference against where you currently sit, and produce the to-do list.' },
-              { n: '03', t: 'We do the work', b: 'We submit you to G2, write your Crunchbase entry, draft the Wikipedia stub if you qualify, run your Show HN, get you cited in r/<your-category> threads the right way.' },
-              { n: '04', t: 'Re-audit and report', b: 'Day 90 we re-run the audit. If your mention rate hasn&apos;t moved, we keep working. We don&apos;t stop until the engine says your name.' },
-            ].map((s) => (
-              <li key={s.n} className="grid grid-cols-12 gap-x-6 py-10 border-b border-rule">
-                <span className="col-span-2 md:col-span-1 font-data text-muted text-lg">{s.n}</span>
-                <div className="col-span-10 md:col-span-11">
-                  <h3 className="font-display text-3xl text-ink mb-3" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}>
+          <ol className="relative">
+            {/* connecting line, drawn behind the step numbers */}
+            <div className="absolute top-8 left-0 right-0 h-px bg-rule hidden md:block" aria-hidden />
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-x-8 gap-y-12 md:gap-y-0 relative">
+              {[
+                { n: '01', t: 'Audit', d: 'Baseline audit on Day 1. Five live engines, twelve buyer-intent queries. The scoreboard.', dt: 'Day 1' },
+                { n: '02', t: 'Place', d: 'Six to eight submissions: G2, Crunchbase, Capterra, PH, HN, Reddit, Wikipedia. We own the work.', dt: 'Days 7–30' },
+                { n: '03', t: 'Watch', d: 'Monthly re-audits. Competitor-watchlist deltas. Slack ping when the rate moves.', dt: 'Days 30–90' },
+                { n: '04', t: 'Guarantee', d: 'Day-90 re-audit. No lift? We keep going at no cost. Clause in the contract.', dt: 'Day 90' },
+              ].map((s) => (
+                <li key={s.n} className="relative">
+                  {/* node on the connecting line */}
+                  <div className="flex items-baseline gap-3 mb-6">
+                    <span
+                      className="font-display text-2xl text-ink shrink-0 bg-cream px-1"
+                      style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                    >
+                      {s.n}
+                    </span>
+                    <span className="eyebrow text-muted">{s.dt}</span>
+                  </div>
+                  <h3
+                    className="font-display text-4xl text-ink mb-4"
+                    style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                  >
                     {s.t}
                   </h3>
-                  <p className="text-ink leading-relaxed max-w-3xl" dangerouslySetInnerHTML={{ __html: s.b }} />
-                </div>
-              </li>
-            ))}
+                  <p className="text-ink leading-relaxed">{s.d}</p>
+                </li>
+              ))}
+            </div>
           </ol>
+
+          <div className="mt-16 pt-10 border-t border-rule flex flex-wrap items-center justify-between gap-4">
+            <p className="text-sm text-muted font-data">
+              Want the actual submissions, copy-pasteable? They are at{' '}
+              <Link href="/case-study/aeo-auditor/playbook" className="underline decoration-rule underline-offset-2 hover:text-signal">
+                /case-study/aeo-auditor/playbook
+              </Link>
+              .
+            </p>
+            <Link
+              href="/services"
+              className="text-sm text-ink uppercase tracking-eyebrow hover:text-signal"
+            >
+              See pricing &amp; process →
+            </Link>
+          </div>
         </div>
       </section>
 
-      {/* ─── THE NUMBERS — the case for action ─────────────────── */}
-      <section className="border-b border-rule">
-        <div className="max-w-8xl mx-auto px-8 py-20">
-          <div className="grid grid-cols-12 gap-x-6">
-            <div className="col-span-12 md:col-span-2 mb-6 md:mb-0">
-              <p className="eyebrow">The numbers</p>
+      {/* ─── PRICING — three tiers, one featured, no wall of text ─ */}
+      <section className="border-b border-rule bg-cream">
+        <div className="max-w-8xl mx-auto px-8 py-24">
+          <div className="grid grid-cols-12 gap-x-6 mb-14">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Pricing</p>
             </div>
             <div className="col-span-12 md:col-span-10">
-              <p
-                className="font-display text-headline leading-snug text-ink max-w-3xl mb-12"
+              <h2
+                className="font-display text-headline text-ink mb-4"
+                style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+              >
+                Flat fee. One brand at a time.
+              </h2>
+              <p className="text-lg text-ink max-w-3xl leading-relaxed">
+                All engagements have the same Day-90 lift guarantee in the contract.
+                We do not bill for any month where the audit shows no measurable lift.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 border border-ink">
+            {[
+              {
+                name: 'Sprint',
+                setup: '$1.5k',
+                monthly: '$3.5k/mo',
+                line: 'One brand. Four placements in 30 days.',
+                featured: false,
+              },
+              {
+                name: 'Engine',
+                setup: '$5k',
+                monthly: '$8.5k/mo',
+                line: 'Two brands or two markets. Watchlist + monthly re-audits.',
+                featured: true,
+              },
+              {
+                name: 'Plays',
+                setup: '—',
+                monthly: 'from $15k/mo',
+                line: 'For $20M+ ARR brands with their own content team.',
+                featured: false,
+              },
+            ].map((t) => (
+              <article
+                key={t.name}
+                className={`p-10 border-b md:border-b-0 md:border-r border-rule last:border-r-0 flex flex-col ${
+                  t.featured ? 'bg-paper' : 'bg-paper/50'
+                }`}
+              >
+                {t.featured && (
+                  <p className="eyebrow text-signal mb-3">Most engagements start here</p>
+                )}
+                <h3
+                  className="font-display text-4xl text-ink mb-6"
+                  style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                >
+                  {t.name}
+                </h3>
+                <p className="font-display text-xl text-ink mb-1" style={{ fontWeight: 500 }}>
+                  {t.setup} <span className="text-muted text-base">setup</span>
+                </p>
+                <p className="font-display text-xl text-ink mb-8" style={{ fontWeight: 500 }}>
+                  {t.monthly}
+                </p>
+                <p className="text-ink leading-relaxed mb-10 flex-1">{t.line}</p>
+                <Link
+                  href="/services"
+                  className={`inline-flex items-center justify-center gap-2 px-6 py-3 uppercase tracking-eyebrow text-xs transition-colors ${
+                    t.featured
+                      ? 'bg-ink text-paper hover:bg-signal'
+                      : 'border border-ink text-ink hover:bg-ink hover:text-paper'
+                  }`}
+                >
+                  See what&apos;s included
+                  <span aria-hidden>→</span>
+                </Link>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── THE COST OF INACTION — fear, then the door ─────────── */}
+      <section className="border-b border-rule">
+        <div className="max-w-8xl mx-auto px-8 py-24">
+          <div className="grid grid-cols-12 gap-x-6">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow">Why now</p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2
+                className="font-display text-headline text-ink mb-10 leading-tight max-w-4xl"
                 style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60, 'SOFT' 30" }}
               >
-                SEO ranked you on a list of ten blue links. AI ranks you in a
-                paragraph — or not at all. The traffic you lost to zero-click
-                searches last year is the traffic ChatGPT ate this year.
+                SEO ranked you on a list of ten blue links. AI ranks you in a paragraph — or not at all.
+              </h2>
+              <p className="text-xl text-ink max-w-3xl leading-relaxed mb-12">
+                The traffic you lost to zero-click searches last year is the traffic ChatGPT ate this year.
+                A CMO who wakes up to this in Q4 calls us in Q1. Q1 callers get the Q2 engagements.
+                Q2 callers are already on the Q3 waitlist.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-10 border-t border-rule text-sm">
-                <div>
-                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
-                    60<span className="text-muted text-lg">%</span>
-                  </p>
-                  <p className="text-ink">
-                    of Google searches ended in a zero-click answer in 2024.
-                  </p>
-                  <p className="text-xs text-muted mt-2 font-data">SparkToro · Similarweb</p>
-                </div>
-                <div>
-                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
-                    25<span className="text-muted text-lg">%</span>
-                  </p>
-                  <p className="text-ink">
-                    of organic search moves to AI chatbots by end of 2026.
-                  </p>
-                  <p className="text-xs text-muted mt-2 font-data">Gartner, 2024 forecast</p>
-                </div>
-                <div>
-                  <p className="font-display text-3xl text-ink mb-1" style={{ fontWeight: 580 }}>
-                    15<span className="text-muted text-lg">%</span>
-                  </p>
-                  <p className="text-ink">
-                    of Google queries now show AI Overviews (up from 6% YoY).
-                  </p>
-                  <p className="text-xs text-muted mt-2 font-data">Search Engine Land, Q1 2026</p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-10 border-t border-rule">
+                {[
+                  { v: '60%', l: 'of Google searches ended in a zero-click answer in 2024.', s: 'SparkToro · Similarweb' },
+                  { v: '25%', l: 'of organic search moves to AI chatbots by end of 2026.', s: 'Gartner' },
+                  { v: '15%', l: 'of Google queries now show AI Overviews (up from 6% YoY).', s: 'Search Engine Land, Q1 2026' },
+                ].map((c) => (
+                  <div key={c.v}>
+                    <p
+                      className="font-display text-ink mb-2"
+                      style={{ fontSize: 56, lineHeight: 1, fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                    >
+                      {c.v}
+                    </p>
+                    <p className="text-ink leading-relaxed mb-2">{c.l}</p>
+                    <p className="text-xs text-muted font-data">{c.s}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ─── RECENT AUDITS — keeps the tool's social proof on the home page */}
+      {/* ─── RECENT AUDITS — social proof, not a log ────────────── */}
       {recent.length > 0 && (
         <section className="border-b border-rule">
-          <div className="max-w-8xl mx-auto px-8 py-16">
-            <div className="flex items-baseline justify-between mb-8">
+          <div className="max-w-8xl mx-auto px-8 py-20">
+            <div className="flex items-end justify-between mb-10">
               <div>
-                <p className="eyebrow mb-2">Examples, on the record</p>
-                <h2 className="font-display text-3xl text-ink" style={{ fontWeight: 500 }}>
-                  The free AI audit, public logs.
+                <p className="eyebrow mb-2 text-muted">On the record</p>
+                <h2
+                  className="font-display text-4xl text-ink"
+                  style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}
+                >
+                  What AI engines said this week.
                 </h2>
               </div>
-              <Link href="/audit" className="text-sm text-ink hover:text-signal">All audits →</Link>
+              <Link href="/audit" className="text-sm text-ink hover:text-signal uppercase tracking-eyebrow shrink-0">
+                Run your own →
+              </Link>
             </div>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-y border-ink text-left">
-                  <th className="eyebrow py-3 pr-4 w-32">Date</th>
-                  <th className="eyebrow py-3 pr-4">Brand</th>
-                  <th className="eyebrow py-3 pr-4">Category</th>
-                  <th className="eyebrow py-3 pr-4 text-right">Mention rate</th>
-                  <th className="eyebrow py-3 pr-0 text-right w-32">Read →</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recent.map((a) => (
-                  <tr key={a.id} className="border-b border-rule hover:bg-cream transition-colors">
-                    <td className="py-3 pr-4 font-data text-xs text-muted">
-                      {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
-                    </td>
-                    <td className="py-3 pr-4 font-display text-lg" style={{ fontWeight: 500 }}>
-                      <Link href={`/audit/${a.id}`} className="hover:text-signal transition-colors">{a.brand}</Link>
-                    </td>
-                    <td className="py-3 pr-4 text-ink">{a.category}</td>
-                    <td className="py-3 pr-4 font-data text-right">{Math.round(a.mentionRate * 100)}%</td>
-                    <td className="py-3 pr-0 text-right">
-                      <Link href={`/audit/${a.id}`} className="inline-flex items-center text-muted hover:text-signal text-xs">Read audit →</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-0 border-t border-ink">
+              {recent.slice(0, 4).map((a, i) => (
+                <li
+                  key={a.id}
+                  className={`p-8 border-rule ${i % 2 === 0 ? 'md:border-r' : ''} ${i < 2 ? 'border-b' : ''}`}
+                >
+                  <Link href={`/audit/${a.id}`} className="block group">
+                    <div className="flex items-baseline justify-between mb-3">
+                      <span className="eyebrow text-muted">{a.category}</span>
+                      <span className="font-data text-xs text-muted">
+                        {new Date(a.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' })}
+                      </span>
+                    </div>
+                    <p
+                      className="font-display text-3xl text-ink mb-3 group-hover:text-signal transition-colors"
+                      style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}
+                    >
+                      {a.brand}
+                    </p>
+                    <div className="flex items-baseline gap-4">
+                      <p className="font-display text-2xl text-ink" style={{ fontWeight: 580 }}>
+                        {Math.round(a.mentionRate * 100)}<span className="text-muted text-base">%</span>
+                      </p>
+                      <span className="text-xs text-muted font-data uppercase tracking-eyebrow">mention rate</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       )}
 
-      {/* ─── CLOSING CTA — works-only, no SaaS-faff ─────────────── */}
+      {/* ─── CTA — full-width, one sentence, one button ─────────── */}
       <section className="bg-ink text-paper">
-        <div className="max-w-8xl mx-auto px-8 py-24">
-          <div className="grid grid-cols-12 gap-x-6 items-end">
-            <div className="col-span-12 md:col-span-7">
-              <p className="eyebrow mb-6 text-paper/60">The only offer</p>
-              <h2
-                className="font-display text-display leading-none mb-8"
-                style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144" }}
+        <div className="max-w-8xl mx-auto px-8 py-32 md:py-40">
+          <div className="max-w-4xl">
+            <p className="eyebrow text-paper/60 mb-8">The only ask</p>
+            <h2
+              className="font-display text-display leading-[0.95] mb-12"
+              style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}
+            >
+              <span className="italic">Send us your brand.</span>
+              <br />
+              <span className="text-paper/70">We&apos;ll show you the gap by Friday.</span>
+            </h2>
+            <p className="text-xl text-paper/80 max-w-2xl mb-12 leading-relaxed">
+              No deck. No discovery call before. No 17-field form. Send one sentence
+              with your brand name and your category. We&apos;ll reply within one
+              business day with a live audit of where you stand today.
+            </p>
+            <div className="flex flex-wrap items-center gap-5">
+              <Link
+                href="/contact"
+                className="group inline-flex items-center gap-4 px-10 py-5 bg-paper text-ink uppercase tracking-eyebrow text-sm hover:bg-signal hover:text-paper transition-colors"
               >
-                <span className="italic">Get cited.</span>{' '}
-                <span className="text-paper/70">Not audited.</span>
-              </h2>
-              <p className="text-lg text-paper/80 max-w-2xl mb-10 leading-relaxed">
-                Flat monthly fee. We own the placements, the submissions, the
-                writing, and the watchlist. If your mention rate does not move by
-                Day 90, we keep going until it does.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link
-                  href="/contact"
-                  className="inline-flex items-center gap-3 px-8 py-4 bg-paper text-ink uppercase tracking-eyebrow hover:bg-signal hover:text-paper transition-colors"
-                >
-                  Talk to us
-                  <span aria-hidden>→</span>
-                </Link>
-                <Link
-                  href="/audit"
-                  className="inline-flex items-center gap-3 px-8 py-4 border border-paper text-paper uppercase tracking-eyebrow hover:bg-paper hover:text-ink transition-colors"
-                >
-                  Or run a free audit
-                </Link>
-              </div>
+                Send us your brand
+                <span aria-hidden className="transition-transform group-hover:translate-x-1">→</span>
+              </Link>
+              <Link
+                href="/audit"
+                className="text-sm text-paper/80 hover:text-paper uppercase tracking-eyebrow underline decoration-paper/30 underline-offset-4"
+              >
+                or run a free 90-second audit
+              </Link>
             </div>
-
-            <aside className="col-span-12 md:col-span-4 md:col-start-9 mt-12 md:mt-0 md:pl-8 border-l border-paper/20">
-              <ul className="space-y-5 text-sm text-paper/80">
-                <li>
-                  <span className="font-display text-2xl text-paper mr-3" style={{ fontWeight: 580 }}>$1.5k</span>
-                  <span>setup, one-time</span>
-                </li>
-                <li>
-                  <span className="font-display text-2xl text-paper mr-3" style={{ fontWeight: 580 }}>$3.5k</span>
-                  <span>a month, per brand</span>
-                </li>
-                <li>
-                  <span className="font-display text-2xl text-paper mr-3" style={{ fontWeight: 580 }}>90</span>
-                  <span>days to a measurable lift, or we keep going</span>
-                </li>
-              </ul>
-            </aside>
           </div>
         </div>
       </section>
