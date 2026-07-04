@@ -64,20 +64,18 @@ function bootstrap(c: Client): void {
     CREATE INDEX IF NOT EXISTS idx_created ON audits(created_at DESC);
   `);
 
-  // Migrate older DBs that predate v0.3 columns. Each ALTER is wrapped — the
-  // first call succeeds, subsequent calls throw "duplicate column" and we
-  // swallow them.
+  // Migrate older DBs that predate v0.3 columns. libsql's execute returns
+  // a Promise. We fire-and-forget but capture any "duplicate column" rejection
+  // so existing schemas are not broken.
   const adds = [
     `ALTER TABLE audits ADD COLUMN weighted_mention_rate REAL`,
     `ALTER TABLE audits ADD COLUMN offline_memory_rate REAL`,
     `ALTER TABLE audits ADD COLUMN audit_kind TEXT NOT NULL DEFAULT 'standard'`,
   ];
   for (const sql of adds) {
-    try {
-      c.execute(sql);
-    } catch {
-      // column already exists
-    }
+    c.execute(sql).catch(() => {
+      // column already exists — fine
+    });
   }
 
   // Org keys — single-row table for v0.3 BYOK. org_id = 'default' for now.
@@ -108,6 +106,30 @@ function bootstrap(c: Client): void {
     );
     CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_leads_email ON leads(email);
+  `);
+
+  // Source scans — v0.5: per-source per-brand coverage snapshots.
+  c.execute(`
+    CREATE TABLE IF NOT EXISTS source_scans (
+      scan_id TEXT PRIMARY KEY,
+      brand TEXT NOT NULL,
+      category TEXT,
+      source_id TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      source_exists INTEGER NOT NULL,
+      url TEXT,
+      bytes INTEGER,
+      claims INTEGER,
+      freshness_days INTEGER,
+      quality_score REAL NOT NULL,
+      notes TEXT,
+      rationale TEXT,
+      error TEXT,
+      scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_scans_brand ON source_scans(brand);
+    CREATE INDEX IF NOT EXISTS idx_scans_source ON source_scans(source_id);
+    CREATE INDEX IF NOT EXISTS idx_scans_scanned ON source_scans(scanned_at DESC);
   `);
 }
 
@@ -335,4 +357,91 @@ export async function recentLeads(limit = 20): Promise<LeadRow[]> {
     args: [limit],
   });
   return res.rows as unknown as LeadRow[];
+}
+
+/* ────────────────────────── SOURCE SCANS (v0.5) ────────────────────────── */
+
+export interface SourceScanInput {
+  scanId: string;
+  brand: string;
+  category: string | null;
+  sourceId: string;
+  mode: string;
+  exists: boolean;
+  url: string | null;
+  bytes: number | null;
+  claims: number | null;
+  freshnessDays: number | null;
+  qualityScore: number;
+  notes: string[];
+  rationale: string;
+  error: string | null;
+  scannedAt: string;
+}
+
+export async function saveSourceScan(input: SourceScanInput): Promise<void> {
+  const c = getDb();
+  await c.execute({
+    sql: `INSERT OR REPLACE INTO source_scans
+          (scan_id, brand, category, source_id, mode, source_exists, url, bytes, claims, freshness_days, quality_score, notes, rationale, error, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      input.scanId,
+      input.brand.slice(0, 200),
+      input.category?.slice(0, 200) ?? null,
+      input.sourceId,
+      input.mode,
+      input.exists ? 1 : 0,
+      input.url?.slice(0, 600) ?? null,
+      input.bytes ?? null,
+      input.claims ?? null,
+      input.freshnessDays ?? null,
+      input.qualityScore,
+      input.notes.slice(0, 3).join(' | ').slice(0, 800),
+      input.rationale.slice(0, 400),
+      input.error?.slice(0, 400) ?? null,
+      input.scannedAt,
+    ],
+  });
+}
+
+export interface SourceScanRow {
+  scan_id: string;
+  brand: string;
+  category: string | null;
+  source_id: string;
+  mode: string;
+  source_exists: number;
+  url: string | null;
+  bytes: number | null;
+  claims: number | null;
+  freshness_days: number | null;
+  quality_score: number;
+  notes: string | null;
+  rationale: string | null;
+  error: string | null;
+  scanned_at: string;
+}
+
+export async function recentSourceScans(brand: string, limit = 50): Promise<SourceScanRow[]> {
+  const c = getDb();
+  const res = await c.execute({
+    sql: `SELECT * FROM source_scans WHERE brand = ? ORDER BY scanned_at DESC LIMIT ?`,
+    args: [brand, limit],
+  });
+  return res.rows as unknown as SourceScanRow[];
+}
+
+export async function distinctBrandsScanned(limit = 20): Promise<{ brand: string; latest: string; sources_present: number }[]> {
+  const c = getDb();
+  const res = await c.execute({
+    sql: `SELECT brand, MAX(scanned_at) as latest, SUM(source_exists) as sources_present
+          FROM source_scans GROUP BY brand ORDER BY latest DESC LIMIT ?`,
+    args: [limit],
+  });
+  return (res.rows as any[]).map((r) => ({
+    brand: r.brand,
+    latest: r.latest,
+    sources_present: Number(r.sources_present ?? 0),
+  }));
 }
