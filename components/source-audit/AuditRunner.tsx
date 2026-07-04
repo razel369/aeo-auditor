@@ -4,6 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { CitationCoverageReport } from '@/lib/source-scoring';
 import type { SourceProfile } from '@/lib/source-adapters';
+import { LeadCapture } from './LeadCapture';
+
+interface ReportResult extends CitationCoverageReport {
+  auditId: string;
+}
 
 interface Props {
   brand: string;
@@ -11,7 +16,7 @@ interface Props {
 }
 
 const WEIGHTS: Record<string, number> = {
-  wikipedia: 3, wikidata: 2, crunchbase: 1.5, g2: 1.5, capterra: 1,
+  wikipedia: 3, wikidata: 2, hackernews: 1.2, crunchbase: 1.5, g2: 1.5, capterra: 1,
   product_hunt: 1, reddit: 1, linkedin: 0,
 };
 
@@ -28,7 +33,7 @@ function modeBadge(mode: SourceProfile['mode']): [string, string, string] {
 
 export function AuditRunner({ brand, category }: Props) {
   const [phase, setPhase] = useState<'running' | 'done' | 'error'>('running');
-  const [report, setReport] = useState<CitationCoverageReport | null>(null);
+  const [report, setReport] = useState<ReportResult | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export function AuditRunner({ brand, category }: Props) {
             signal: ctrl.signal,
           });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const data: CitationCoverageReport = await res.json();
+          const data: ReportResult = await res.json();
           setReport(data);
           setPhase('done');
           return;
@@ -123,7 +128,7 @@ function ErrorState({ brand, message }: { brand: string; message: string | null 
   );
 }
 
-function ReportView({ report }: { report: CitationCoverageReport }) {
+function ReportView({ report }: { report: ReportResult }) {
   const liveCount = report.summaryByMode.live;
   const presentCount = report.profiles.filter((p) => p.exists).length;
   return (
@@ -151,6 +156,8 @@ function ReportView({ report }: { report: CitationCoverageReport }) {
               <p className="text-sm text-muted font-data">
                 {presentCount}/9 sources · {liveCount}/3 live adapters reachable · scan {new Date(report.scannedAt).toLocaleString()}
               </p>
+              <ShareLink auditId={report.auditId} />
+
             </aside>
           </div>
         </div>
@@ -268,6 +275,14 @@ function ReportView({ report }: { report: CitationCoverageReport }) {
               <br />
               <span className="text-paper/70">We do the rank-and-file work in 90 days.</span>
             </h2>
+            <div className="mb-12 bg-paper text-ink">
+              <LeadCapture
+                brand={report.brand}
+                category={report.category}
+                score={report.overallScore}
+                actionCount={report.actions.length}
+              />
+            </div>
             <div className="flex flex-wrap gap-4">
               <Link href="/contact"
                     className="group inline-flex items-center gap-3 px-10 py-5 bg-paper text-ink uppercase tracking-eyebrow text-sm hover:bg-signal hover:text-paper">
@@ -283,5 +298,40 @@ function ReportView({ report }: { report: CitationCoverageReport }) {
         </div>
       </section>
     </>
+  );
+}
+
+function ShareLink({ auditId }: { auditId: string }) {
+  const [copied, setCopied] = useState(false);
+  const [url, setUrl] = useState('');
+  useEffect(() => {
+    setUrl(`${window.location.origin}/audit/${auditId}`);
+  }, [auditId]);
+  function copy() {
+    if (!url) return;
+    navigator.clipboard?.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2200);
+    }).catch(() => { /* ignore */ });
+  }
+  return (
+    <div className="mt-6 pt-6 border-t border-rule">
+      <p className="eyebrow text-muted mb-2">Shareable report</p>
+      <div className="flex items-stretch gap-2">
+        <code className="flex-1 font-data text-xs text-ink bg-cream border border-rule px-3 py-2 truncate">
+          {url || '…'}
+        </code>
+        <button
+          type="button"
+          onClick={copy}
+          className="px-3 py-2 bg-ink text-paper uppercase tracking-eyebrow text-[10px] hover:bg-signal transition-colors"
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <p className="text-[11px] text-muted mt-2 font-data">
+        Permanent URL. No expiry. Publicly indexable.
+      </p>
+    </div>
   );
 }

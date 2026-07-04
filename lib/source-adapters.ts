@@ -63,7 +63,7 @@ export interface SourceAdapter {
 
 const USER_AGENT = 'AEO-Auditor-Research/0.5 (+https://aeo-auditor-tawny.vercel.app research)';
 
-async function safeFetch(url: string, timeoutMs = 8000): Promise<Response | null> {
+async function safeFetch(url: string, timeoutMs = 4000): Promise<Response | null> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

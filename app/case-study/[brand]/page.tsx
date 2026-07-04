@@ -119,6 +119,93 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
         </div>
       </section>
 
+      {/* ─── V0.5 BASELINE (NEW ENGINE) ───────────────────────── */}
+      <section className="border-b border-ink bg-paper">
+        <div className="max-w-8xl mx-auto px-8 py-20">
+          <div className="grid grid-cols-12 gap-x-6 mb-12">
+            <div className="col-span-12 md:col-span-2">
+              <p className="eyebrow text-signal">v0.5 baseline</p>
+              <p className="text-xs text-muted font-data mt-2 leading-relaxed">
+                new engine<br />9 sources<br />no LLM
+              </p>
+            </div>
+            <div className="col-span-12 md:col-span-10">
+              <h2 className="font-display text-headline text-ink mb-4"
+                  style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}>
+                Our own citation coverage, today.
+              </h2>
+              <p className="text-lg text-ink leading-relaxed max-w-3xl mb-10">
+                Before we sell Day-90 gains to clients, we run the citation-coverage audit on ourselves.
+                These are <em>live</em> numbers — pulled from Wikipedia, Wikidata, HackerNews, and the
+                other 6 sources our new v0.5 engine tracks.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-8 pt-10 border-t border-ink">
+                <div>
+                  <p className="eyebrow mb-2">Coverage score</p>
+                  <p className="font-display text-7xl text-signal leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>29<span className="text-2xl text-muted">/100</span></p>
+                  <p className="text-xs text-muted font-data mt-2">Day 0, July 2026</p>
+                </div>
+                <div>
+                  <p className="eyebrow mb-2">Sources cited</p>
+                  <p className="font-display text-7xl text-ink leading-none" style={{ fontWeight: 580 }}>
+                    4<span className="text-2xl text-muted">/9</span>
+                  </p>
+                  <p className="text-xs text-muted font-data mt-2">2 live · 5 stub/gated</p>
+                </div>
+                <div>
+                  <p className="eyebrow mb-2">Top action</p>
+                  <p className="font-display text-xl text-ink leading-tight mt-3" style={{ fontWeight: 580 }}>
+                    Create Wikidata entry
+                  </p>
+                  <p className="font-data text-signal mt-1.5">+15 pts</p>
+                </div>
+                <div>
+                  <p className="eyebrow mb-2">Day-90 target</p>
+                  <p className="font-display text-7xl text-ok leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>90<span className="text-2xl text-muted">/100</span></p>
+                  <p className="text-xs text-muted font-data mt-2">or we keep working</p>
+                </div>
+              </div>
+
+              <div className="mt-12 pt-10 border-t border-rule">
+                <p className="eyebrow mb-4">Source-by-source (today)</p>
+                <ul className="grid grid-cols-1 md:grid-cols-3 gap-0 border-t border-ink text-sm">
+                  {[
+                    ['Wikipedia',      'live',    'Partial hit · category match unclear'],
+                    ['Wikidata',       'live',    'MISSING · action +15 pts'],
+                    ['HackerNews',     'live',    'Some related threads · quality 8/10'],
+                    ['Crunchbase',     'stub',    'Pending analyst verification'],
+                    ['G2',             'stub',    'Pending analyst verification'],
+                    ['Capterra',       'stub',    'Pending analyst verification'],
+                    ['Product Hunt',   'stub',    'Launch scheduled Aug 2026'],
+                    ['Reddit',         'gated',   'API closed off as of 2024'],
+                    ['LinkedIn',       'skip',    'ToS prevents scraping'],
+                  ].map(([name, mode, note], i) => (
+                    <li key={name as string}
+                        className={`flex items-baseline justify-between gap-4 py-3 border-b border-rule ${i % 3 !== 2 ? 'md:border-r md:pr-4' : ''} ${i % 3 !== 0 ? 'md:pl-4' : ''}`}>
+                      <span className="font-data text-ink">{name}</span>
+                      <span className={`eyebrow ${mode === 'live' ? 'text-ok' : mode === 'stub' ? 'text-muted' : 'text-muted'}`}>{mode}</span>
+                      <span className="text-xs text-muted text-right max-w-[180px]">{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-10 flex flex-wrap gap-4">
+                <Link href="/audit/run?brand=AEO+Auditor&category=analytics"
+                      className="inline-flex items-center gap-3 px-8 py-4 bg-ink text-paper uppercase tracking-eyebrow text-sm hover:bg-signal">
+                  Re-run our audit live →
+                </Link>
+                <Link href="/audit/[id]"
+                      className="inline-flex items-center gap-3 px-8 py-4 border border-ink text-ink uppercase tracking-eyebrow text-sm hover:bg-ink hover:text-paper"
+                      prefetch={false}>
+                  See the published report
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ─── PLACEMENT TRACKER ────────────────────────────────── */}
       <section className="border-b border-rule">
         <div className="max-w-8xl mx-auto px-8 py-20">

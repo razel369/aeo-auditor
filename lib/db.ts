@@ -131,6 +131,43 @@ function bootstrap(c: Client): void {
     CREATE INDEX IF NOT EXISTS idx_scans_source ON source_scans(source_id);
     CREATE INDEX IF NOT EXISTS idx_scans_scanned ON source_scans(scanned_at DESC);
   `);
+
+  // Source audits — v0.5.1: one row per scan with stable id for shareable URLs.
+  c.execute(`
+    CREATE TABLE IF NOT EXISTS source_audits (
+      audit_id TEXT PRIMARY KEY,
+      brand TEXT NOT NULL,
+      category TEXT,
+      overall_score INTEGER NOT NULL,
+      profiles_json TEXT NOT NULL,
+      actions_json TEXT NOT NULL,
+      summary_by_mode TEXT NOT NULL,
+      scanned_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_audits_brand ON source_audits(brand);
+    CREATE INDEX IF NOT EXISTS idx_audits_scanned ON source_audits(scanned_at DESC);
+  `);
+
+  // Source audit leads — post-audit conversion: someone saw the report and
+  // asked for the Day-90 path. Different table from /api/leads because
+  // source-audit leads carry brand + score context.
+  c.execute(`
+    CREATE TABLE IF NOT EXISTS source_leads (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      name TEXT,
+      company TEXT,
+      brand TEXT NOT NULL,
+      category TEXT,
+      overall_score INTEGER NOT NULL,
+      action_count INTEGER NOT NULL,
+      source TEXT NOT NULL DEFAULT 'audit-followup',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_source_leads_email ON source_leads(email);
+    CREATE INDEX IF NOT EXISTS idx_source_leads_brand ON source_leads(brand);
+    CREATE INDEX IF NOT EXISTS idx_source_leads_created ON source_leads(created_at DESC);
+  `);
 }
 
 // ─── Public helpers ────────────────────────────────────────────────────
@@ -432,16 +469,121 @@ export async function recentSourceScans(brand: string, limit = 50): Promise<Sour
   return res.rows as unknown as SourceScanRow[];
 }
 
-export async function distinctBrandsScanned(limit = 20): Promise<{ brand: string; latest: string; sources_present: number }[]> {
+export async function distinctBrandsScanned(limit = 20): Promise<{ audit_id: string; brand: string; latest: string; sources_present: number; overall_score: number | null }[]> {
   const c = getDb();
   const res = await c.execute({
-    sql: `SELECT brand, MAX(scanned_at) as latest, SUM(source_exists) as sources_present
-          FROM source_scans GROUP BY brand ORDER BY latest DESC LIMIT ?`,
+    sql: `SELECT ss.brand, ss.scan_id as sid, MAX(ss.scanned_at) as latest, SUM(ss.source_exists) as sources_present,
+                 (SELECT sa.overall_score FROM source_audits sa WHERE sa.brand = ss.brand ORDER BY sa.scanned_at DESC LIMIT 1) as overall_score,
+                 (SELECT sa.audit_id FROM source_audits sa WHERE sa.brand = ss.brand ORDER BY sa.scanned_at DESC LIMIT 1) as audit_id
+          FROM source_scans ss GROUP BY ss.brand ORDER BY latest DESC LIMIT ?`,
     args: [limit],
   });
   return (res.rows as any[]).map((r) => ({
+    audit_id: r.audit_id ?? r.sid?.toString().slice(0, 10) ?? `${Math.random().toString(36).slice(2, 10)}`,
     brand: r.brand,
     latest: r.latest,
     sources_present: Number(r.sources_present ?? 0),
+    overall_score: r.overall_score !== null && r.overall_score !== undefined ? Number(r.overall_score) : 0,
   }));
+}
+
+export interface SourceAuditRow {
+  audit_id: string;
+  brand: string;
+  category: string | null;
+  overall_score: number;
+  profiles_json: string;
+  actions_json: string;
+  summary_by_mode: string;
+  scanned_at: string;
+}
+
+export async function saveSourceAudit(input: {
+  auditId: string;
+  brand: string;
+  category: string | null;
+  overallScore: number;
+  profilesJson: string;
+  actionsJson: string;
+  summaryByMode: string;
+  scannedAt: string;
+}): Promise<void> {
+  const c = getDb();
+  await c.execute({
+    sql: `INSERT INTO source_audits
+          (audit_id, brand, category, overall_score, profiles_json, actions_json, summary_by_mode, scanned_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      input.auditId,
+      input.brand.slice(0, 200),
+      input.category?.slice(0, 200) ?? null,
+      input.overallScore,
+      input.profilesJson,
+      input.actionsJson,
+      input.summaryByMode,
+      input.scannedAt,
+    ],
+  });
+}
+
+export async function getSourceAuditWithRows(auditId: string): Promise<{
+  audit: SourceAuditRow;
+  profiles: any[];
+  actions: any[];
+  summary: { live: number; stub: number; manual: number; gated: number; skipped: number };
+} | null> {
+  const c = getDb();
+  const auditRes = await c.execute({
+    sql: `SELECT * FROM source_audits WHERE audit_id = ?`,
+    args: [auditId],
+  });
+  const rows = auditRes.rows as unknown as SourceAuditRow[];
+  if (!rows.length) return null;
+  const audit = rows[0];
+  let profiles: any[] = [];
+  let actions: any[] = [];
+  let summary = { live: 0, stub: 0, manual: 0, gated: 0, skipped: 0 };
+  try {
+    profiles = JSON.parse(audit.profiles_json);
+  } catch { /* */ }
+  try {
+    actions = JSON.parse(audit.actions_json);
+  } catch { /* */ }
+  try {
+    summary = JSON.parse(audit.summary_by_mode);
+  } catch { /* */ }
+  return { audit, profiles, actions, summary };
+}
+
+export interface SourceLeadInput {
+  email: string;
+  name?: string | undefined;
+  company?: string | undefined;
+  brand: string;
+  category: string | null;
+  overallScore: number;
+  actionCount: number;
+  source?: string | undefined;
+}
+
+export async function saveSourceLead(input: SourceLeadInput): Promise<string> {
+  const c = getDb();
+  const id = `sl_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`;
+  await c.execute({
+    sql: `INSERT INTO source_leads
+          (id, email, name, company, brand, category, overall_score, action_count, source)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      id,
+      input.email.slice(0, 200).toLowerCase().trim(),
+      input.name?.slice(0, 120) ?? null,
+      input.company?.slice(0, 200) ?? null,
+      input.brand.slice(0, 200),
+      input.category?.slice(0, 200) ?? null,
+      input.overallScore,
+      input.actionCount,
+      (input.source ?? 'audit-followup').slice(0, 60),
+    ],
+  });
+  return id;
 }
