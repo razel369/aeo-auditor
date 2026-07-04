@@ -31,6 +31,38 @@ interface SourceProfile {
   error: string | null;
 }
 
+interface Action {
+  sourceId: string;
+  sourceName: string;
+  priority: 'high' | 'med' | 'low';
+  impact: number;
+  workShape: 'foundational' | 'editorial' | 'data' | 'observability';
+  dayBadge: string;
+  text: string;
+  rationale: string;
+  engagementRole: 'engagement' | 'play' | 'observation';
+}
+
+const WORK_SHAPE_LABEL: Record<Action['workShape'], string> = {
+  foundational: 'Foundational',
+  editorial: 'Editorial',
+  data: 'Data',
+  observability: 'Watched',
+};
+
+const WORK_SHAPE_TONE: Record<Action['workShape'], string> = {
+  foundational: 'text-ok',
+  editorial: 'text-signal',
+  data: 'text-ink',
+  observability: 'text-muted',
+};
+
+const ROLE_LABEL: Record<Action['engagementRole'], string> = {
+  engagement: 'Day-90 engagement',
+  play: 'Play tier',
+  observation: 'Not engineered',
+};
+
 const WEIGHTS: Record<string, number> = {
   wikipedia: 3, wikidata: 2, hackernews: 1.2, crunchbase: 1.5, g2: 1.5,
   capterra: 1, product_hunt: 1, reddit: 1, linkedin: 0,
@@ -181,21 +213,24 @@ export default async function SourceAuditReportPage({ params }: { params: Promis
         </div>
       </section>
 
-      {/* FIX LIST */}
+      {/* ENGAGEMENT SHAPE — what gets engineered in the Day-90 work */}
       {report.actions.length > 0 && (
         <section className="border-b border-rule">
           <div className="max-w-8xl mx-auto px-8 py-20">
             <div className="grid grid-cols-12 gap-x-6 mb-10">
-              <div className="col-span-12 md:col-span-2"><p className="eyebrow">Fix list</p></div>
+              <div className="col-span-12 md:col-span-2"><p className="eyebrow">Engagement shape</p></div>
               <div className="col-span-12 md:col-span-10">
                 <h2 className="font-display text-3xl text-ink"
                     style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
-                  Ranked by impact.
+                  What gets engineered in the engagement.
                 </h2>
+                <p className="mt-3 text-base text-muted max-w-3xl">
+                  Each gap below is a work item on the Day-90 timeline — foundational data, editorial drafting, or research. We sell the engagement; you sell your brand.
+                </p>
               </div>
             </div>
             <ol className="space-y-0 border-t border-ink">
-              {report.actions.map((a: ActionItem, i: number) => (
+              {report.actions.map((a: Action, i: number) => (
                 <li key={a.sourceId + i}
                     className="grid grid-cols-12 gap-x-6 py-7 border-b border-rule items-start">
                   <div className="col-span-12 md:col-span-1">
@@ -206,8 +241,16 @@ export default async function SourceAuditReportPage({ params }: { params: Promis
                   </div>
                   <div className="col-span-12 md:col-span-7">
                     <p className="font-display text-xl text-ink mb-1" style={{ fontWeight: 580 }}>{a.text}</p>
-                    <p className="text-sm text-muted">{a.rationale}</p>
-                    <p className="text-xs text-muted font-data mt-2">{a.effort}</p>
+                    <p className="text-sm text-ink leading-relaxed">{a.rationale}</p>
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-3">
+                      <span className={`eyebrow ${WORK_SHAPE_TONE[a.workShape]}`}>
+                        {WORK_SHAPE_LABEL[a.workShape]}
+                      </span>
+                      <span className="text-xs text-muted font-data">·</span>
+                      <span className="text-xs text-muted font-data">{a.dayBadge}</span>
+                      <span className="text-xs text-muted font-data">·</span>
+                      <span className="text-xs text-muted font-data">{ROLE_LABEL[a.engagementRole]}</span>
+                    </div>
                   </div>
                   <div className="col-span-12 md:col-span-4 md:text-right">
                     <p className={`font-display text-3xl ${a.priority === 'high' ? 'text-signal' : 'text-ink'}`}

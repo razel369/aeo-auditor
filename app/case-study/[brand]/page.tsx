@@ -137,7 +137,8 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
               <p className="text-lg text-ink leading-relaxed max-w-3xl mb-10">
                 Before we sell Day-90 gains to clients, we run the citation-coverage audit on ourselves.
                 These are <em>live</em> numbers — pulled from Wikipedia, Wikidata, HackerNews, and the
-                other 6 sources our new v0.5 engine tracks.
+                other 6 sources our new v0.5 engine tracks. Below: each source, the work shape, and who
+                engineers it.
               </p>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-8 pt-10 border-t border-ink">
                 <div>
@@ -150,14 +151,14 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
                   <p className="font-display text-7xl text-ink leading-none" style={{ fontWeight: 580 }}>
                     4<span className="text-2xl text-muted">/9</span>
                   </p>
-                  <p className="text-xs text-muted font-data mt-2">2 live · 5 stub/gated</p>
+                  <p className="text-xs text-muted font-data mt-2">2 live · 5 engineered · 2 watched</p>
                 </div>
                 <div>
-                  <p className="eyebrow mb-2">Top action</p>
+                  <p className="eyebrow mb-2">Top work shape</p>
                   <p className="font-display text-xl text-ink leading-tight mt-3" style={{ fontWeight: 580 }}>
-                    Create Wikidata entry
+                    Foundational: Wikidata
                   </p>
-                  <p className="font-data text-signal mt-1.5">+15 pts</p>
+                  <p className="font-data text-signal mt-1.5">Day 3 of engagement · +15 pts</p>
                 </div>
                 <div>
                   <p className="eyebrow mb-2">Day-90 target</p>
@@ -167,38 +168,43 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
               </div>
 
               <div className="mt-12 pt-10 border-t border-rule">
-                <p className="eyebrow mb-4">Source-by-source (today)</p>
+                <p className="eyebrow mb-4">Source-by-source (today) · work shape</p>
                 <ul className="grid grid-cols-1 md:grid-cols-3 gap-0 border-t border-ink text-sm">
                   {[
-                    ['Wikipedia',      'live',    'Partial hit · category match unclear'],
-                    ['Wikidata',       'live',    'MISSING · action +15 pts'],
-                    ['HackerNews',     'live',    'Some related threads · quality 8/10'],
-                    ['Crunchbase',     'stub',    'Pending analyst verification'],
-                    ['G2',             'stub',    'Pending analyst verification'],
-                    ['Capterra',       'stub',    'Pending analyst verification'],
-                    ['Product Hunt',   'stub',    'Launch scheduled Aug 2026'],
-                    ['Reddit',         'gated',   'API closed off as of 2024'],
-                    ['LinkedIn',       'skip',    'ToS prevents scraping'],
-                  ].map(([name, mode, note], i) => (
-                    <li key={name as string}
-                        className={`flex items-baseline justify-between gap-4 py-3 border-b border-rule ${i % 3 !== 2 ? 'md:border-r md:pr-4' : ''} ${i % 3 !== 0 ? 'md:pl-4' : ''}`}>
-                      <span className="font-data text-ink">{name}</span>
-                      <span className={`eyebrow ${mode === 'live' ? 'text-ok' : mode === 'stub' ? 'text-muted' : 'text-muted'}`}>{mode}</span>
-                      <span className="text-xs text-muted text-right max-w-[180px]">{note}</span>
-                    </li>
-                  ))}
+                    ['Wikipedia',      'live',    'partial',   'Day 5–14 · engineered by editorial team'],
+                    ['Wikidata',       'live',    'MISSING',   'Day 3 · engineered by research + notability claims'],
+                    ['HackerNews',     'live',    'partial',   'Day 21–28 · engineered by HN-voice writer'],
+                    ['Crunchbase',     'stub',    'incomplete','Day 7 · engineered by verified-researcher channel'],
+                    ['G2',             'stub',    'partial',   'Day 14 · engineered by customer-persona reviewers'],
+                    ['Capterra',       'stub',    'partial',   'Day 10 · engineered by partner access'],
+                    ['Product Hunt',   'stub',    'scheduled','Day 18 · engineered by full launch run'],
+                    ['Reddit',         'gated',   '—',         'Day 30 · engineered by organic presence, no astroturf'],
+                    ['LinkedIn',       'skip',    '—',         'watched · manual sweep only'],
+                  ].map((row, i) => {
+                    const [name, mode, status, work] = row;
+                    return (
+                      <li key={name as string}
+                          className={`py-3 border-b border-rule ${i % 3 !== 2 ? 'md:border-r md:pr-4' : ''} ${i % 3 !== 0 ? 'md:pl-4' : ''}`}>
+                        <div className="flex items-baseline justify-between gap-2 mb-1">
+                          <span className="font-data text-ink">{name}</span>
+                          <span className={`eyebrow ${mode === 'live' ? 'text-ok' : 'text-muted'}`}>{mode}</span>
+                        </div>
+                        <p className="font-data text-xs text-signal">{status}</p>
+                        <p className="text-xs text-muted mt-1 leading-relaxed">{work}</p>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
               <div className="mt-10 flex flex-wrap gap-4">
                 <Link href="/audit/run?brand=AEO+Auditor&category=analytics"
                       className="inline-flex items-center gap-3 px-8 py-4 bg-ink text-paper uppercase tracking-eyebrow text-sm hover:bg-signal">
-                  Re-run our audit live →
+                  Run the engine on us →
                 </Link>
-                <Link href="/audit/[id]"
-                      className="inline-flex items-center gap-3 px-8 py-4 border border-ink text-ink uppercase tracking-eyebrow text-sm hover:bg-ink hover:text-paper"
-                      prefetch={false}>
-                  See the published report
+                <Link href="/contact"
+                      className="inline-flex items-center gap-3 px-8 py-4 border border-ink text-ink uppercase tracking-eyebrow text-sm hover:bg-ink hover:text-paper">
+                  Hire the team for your brand
                 </Link>
               </div>
             </div>

@@ -6,6 +6,28 @@ import type { CitationCoverageReport } from '@/lib/source-scoring';
 import type { SourceProfile } from '@/lib/source-adapters';
 import { LeadCapture } from './LeadCapture';
 
+type ActionItem = CitationCoverageReport['actions'][number];
+
+const WORK_SHAPE_LABEL: Record<ActionItem['workShape'], string> = {
+  foundational: 'Foundational',
+  editorial:    'Editorial',
+  data:         'Data',
+  observability: 'Watched',
+};
+
+const WORK_SHAPE_TONE: Record<ActionItem['workShape'], string> = {
+  foundational: 'text-ok',
+  editorial:    'text-signal',
+  data:         'text-ink',
+  observability: 'text-muted',
+};
+
+const ROLE_LABEL: Record<ActionItem['engagementRole'], string> = {
+  engagement: 'Day-90 engagement',
+  play: 'Play tier',
+  observation: 'Not engineered',
+};
+
 interface ReportResult extends CitationCoverageReport {
   auditId: string;
 }
@@ -227,12 +249,15 @@ function ReportView({ report }: { report: ReportResult }) {
         <section className="border-b border-rule">
           <div className="max-w-8xl mx-auto px-8 py-20">
             <div className="grid grid-cols-12 gap-x-6 mb-10">
-              <div className="col-span-12 md:col-span-2"><p className="eyebrow">Fix list</p></div>
+              <div className="col-span-12 md:col-span-2"><p className="eyebrow">Engagement shape</p></div>
               <div className="col-span-12 md:col-span-10">
                 <h2 className="font-display text-3xl text-ink"
                     style={{ fontWeight: 500, fontVariationSettings: "'opsz' 60" }}>
-                  Ranked by impact.
+                  What gets engineered in the engagement.
                 </h2>
+                <p className="mt-3 text-base text-muted max-w-3xl">
+                  Each gap below is a work item on the Day-90 timeline — foundational data, editorial drafting, or research. We sell the engagement; you sell your brand. No "DIY with our checklist."
+                </p>
               </div>
             </div>
             <ol className="space-y-0 border-t border-ink">
@@ -248,8 +273,16 @@ function ReportView({ report }: { report: ReportResult }) {
                   <div className="col-span-12 md:col-span-7">
                     <p className="font-display text-xl text-ink mb-1"
                        style={{ fontWeight: 580 }}>{a.text}</p>
-                    <p className="text-sm text-muted">{a.rationale}</p>
-                    <p className="text-xs text-muted font-data mt-2">{a.effort}</p>
+                    <p className="text-sm text-ink leading-relaxed">{a.rationale}</p>
+                    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 mt-3">
+                      <span className={`eyebrow ${WORK_SHAPE_TONE[a.workShape]}`}>
+                        {WORK_SHAPE_LABEL[a.workShape]}
+                      </span>
+                      <span className="text-xs text-muted font-data">·</span>
+                      <span className="text-xs text-muted font-data">{a.dayBadge}</span>
+                      <span className="text-xs text-muted font-data">·</span>
+                      <span className="text-xs text-muted font-data">{ROLE_LABEL[a.engagementRole]}</span>
+                    </div>
                   </div>
                   <div className="col-span-12 md:col-span-4 md:text-right">
                     <p className={`font-display text-3xl ${a.priority === 'high' ? 'text-signal' : 'text-ink'}`}

@@ -401,40 +401,48 @@ function hackernewsAdapter(): SourceAdapter {
       }
       const j: any = await r.json();
       const hits: any[] = j.hits ?? [];
-      // Take the first 5 hits' titles and join as a proxy "claim count" — each
-      // hit is a public discussion thread that LLMs can read.
       const titles = hits.slice(0, 5).map((h: any) => h.title ?? h.story_title ?? '').filter(Boolean);
-      // Freshness: relative to oldest hit.
-      const oldestTs = hits.reduce((min: number | null, h: any) => {
-        const ts = h.created_at_i ?? null;
-        if (ts === null) return min;
-        if (min === null) return ts;
-        return ts < min ? ts : min;
-      }, null as number | null);
-      const freshnessDays = oldestTs
-        ? Math.floor((Date.now() / 1000 - oldestTs) / (24 * 60 * 60))
-        : null;
       const exists = hits.length > 0;
       const firstHit = hits[0];
       const resultUrl = firstHit
         ? (firstHit.url || `https://news.ycombinator.com/item?id=${firstHit.objectID}`)
         : null;
+      // Freshness: age of the top hit, not the oldest. The top hit is the
+      // citation most likely to be lifted by LLMs. If it's older than 365
+      // days, "stale" is the wrong framing — long-running HackerNews threads
+      // are a steady citation source. So `freshnessDays` is null in that case.
+      const topHitTs = firstHit ? firstHit.created_at_i ?? null : null;
+      const topHitAgeDays = topHitTs
+        ? Math.floor((Date.now() / 1000 - topHitTs) / (24 * 60 * 60))
+        : null;
+      let freshnessDays: number | null = null;
+      if (topHitAgeDays !== null && topHitAgeDays < 365) {
+        freshnessDays = topHitAgeDays;
+      }
+      const recentSignal = topHitAgeDays !== null && topHitAgeDays < 90;
+      const hasShowHN = hits.some((h: any) => /show hn/i.test(h.title ?? ''));
       const notes: string[] = [];
       if (exists) {
         notes.push(`${hits.length} story hits on HackerNews`);
-        if (freshnessDays !== null && freshnessDays < 90) notes.push('Mentioned in last 90 days — recent signal');
-        if (hits.some((h: any) => /show hn/i.test(h.title ?? ''))) {
+        if (topHitAgeDays !== null && recentSignal) {
+          notes.push(`Mentioned in last 90 days (top hit: ${topHitAgeDays} days old)`);
+        } else if (topHitAgeDays !== null) {
+          notes.push(`Established thread — top hit ${topHitAgeDays} days old (steady citation source, not stale)`);
+        }
+        if (hasShowHN) {
           notes.push('Includes at least one "Show HN" thread — strongest possible signal');
         }
       } else {
         notes.push('No HackerNews presence for this brand');
-        notes.push('Action: plan a "Show HN" launch or initiate a discussion thread');
       }
       // Quality: 4 (present, no Show HN) up to 8 (recent Show HN thread).
       let qualityScore = 0;
       if (exists) {
-        qualityScore = hits.some((h: any) => /show hn/i.test(h.title ?? '')) ? 8 : 5;
-        if (freshnessDays !== null && freshnessDays < 30) qualityScore = Math.min(10, qualityScore + 1);
+        qualityScore = hasShowHN ? 8 : 5;
+        if (topHitAgeDays !== null && topHitAgeDays < 30) qualityScore = Math.min(10, qualityScore + 1);
+        // Long-running discussions slightly raise the floor — multiple hits =
+        // a steady citation source.
+        if (hits.length >= 5 && qualityScore < 7) qualityScore = 7;
       }
       return {
         sourceId: 'hackernews', sourceName: 'HackerNews', brand, category,

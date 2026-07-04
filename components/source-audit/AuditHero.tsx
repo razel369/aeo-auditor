@@ -89,6 +89,17 @@ export function AuditHero() {
           <p className="mt-6 text-xs text-muted font-data">
             ~10 seconds · zero API keys · no signup · scan starts immediately.
           </p>
+          <div className="mt-10 max-w-3xl pt-8 border-t border-rule">
+            <p className="eyebrow text-muted mb-3">Read this first</p>
+            <p className="text-base text-ink leading-relaxed">
+              The audit ranks 9 public sources that AI engines train on. A clean audit
+              doesn't mean a clean fix list. Most missing sources require research and
+              editing to land credibly — Wikidata items need notability-grade citations,
+              Crunchbase listings go through verification, Show HN threads need technical
+              voice that survives moderation. The score tells you the gap. Closing the gap
+              is what we sell, on a Day-90 engagement with a lift guarantee.
+            </p>
+          </div>
         </div>
       </div>
     </section>

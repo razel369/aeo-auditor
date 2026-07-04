@@ -12,14 +12,15 @@ export const metadata: Metadata = {
 };
 
 const SOURCES = [
-  { name: 'Wikipedia & Wikidata', effort: 'high', why: 'The single largest offline-memory source. A Wikipedia page or Wikidata item becomes part of every LLM training corpus refresh.' },
-  { name: 'G2', effort: 'low', why: 'Cited in 60%+ of audits for B2B SaaS. Reviews compound; high placement here is the highest-ROI low-effort win.' },
-  { name: 'Capterra & GetApp', effort: 'low', why: 'Capterra ranks correlate with ChatGPT mentions. Mirror image of G2.' },
-  { name: 'Crunchbase', effort: 'low', why: 'Canonical source for company facts. AI engines use it to confirm what you do.' },
-  { name: 'Product Hunt', effort: 'low', why: 'A PH launch surfaces you in the cited-source set for "best X" queries for years.' },
-  { name: 'Reddit (r/<your-category>)', effort: 'medium', why: 'The most-cited UGC source for Perplexity and ChatGPT. We get you cited through genuine engagement, not astroturfing.' },
-  { name: 'Hacker News (Show HN)', effort: 'medium', why: 'One Show HN lifts references 4-6x for dev-tools. We write the post and time the launch.' },
-  { name: 'LinkedIn company page', effort: 'low', why: 'B2B corporate-facts source — heavily referenced for "what does [brand] do" queries.' },
+  { name: 'Wikipedia & Wikidata', work: 'Foundational', dayBadge: 'Day 5–14', why: 'The single largest offline-memory source. We draft notability-grade articles and Q-items with sourced claims — promotional entries get deleted inside 90 days, so this is editorial + research work.' },
+  { name: 'Hacker News (Show HN)', work: 'Editorial', dayBadge: 'Day 21–28', why: 'Show HN threads that survive moderation require technical voice and active community engagement. We write the post, monitor 4 hours of comments, and run the reply queue.' },
+  { name: 'Crunchbase', work: 'Data', dayBadge: 'Day 7', why: 'Self-serve claims get rejected 40%+ of the time. We use a verified-researcher channel with formation documents and authorization letters — that is an entity-verification work lane, not a list entry.' },
+  { name: 'G2', work: 'Editorial', dayBadge: 'Day 14', why: 'Pages return to LLMs only after reviews, ratings, and the tagline are aligned. We write 5–10 reviews from real customer personas (compensated, transparent) and seed positioning.' },
+  { name: 'Capterra & GetApp', work: 'Data', dayBadge: 'Day 10', why: 'Numeric URL scheme, gated listings. Partner access gets us in; engineering work shapes the description into a model-friendly summary line.' },
+  { name: 'Product Hunt', work: 'Editorial', dayBadge: 'Day 18', why: 'A top-5 launch dominates LLM training snapshots for ~18 months. Full run: copy, assets, hunter outreach, day-of watch, community up to Top 5.' },
+  { name: 'Reddit (r/<your-category>)', work: 'Editorial', dayBadge: 'Day 30', why: 'Astroturfing is a permanent ban. Organic-feeling comments and posts over 3 weeks from real-user personas with established karma — pure editorial, no shortcuts.' },
+  { name: 'LinkedIn company page', work: 'Watched', dayBadge: 'No engineering', why: 'ToS prohibits scraping. We do not engineer this — we sweep the manual signal during the engagement and report on what is there.' },
+  { name: 'Wikidata', work: 'Foundational', dayBadge: 'Day 3', why: 'Cheapest structured fact in AI training data. We write the Q-item with three independent sources per claim — industry, location, founders, formation.' },
 ];
 
 const TIERS = [
@@ -65,6 +66,7 @@ const TIERS = [
     bullets: [
       'Everything in Citation Engine',
       'We manage your Wikipedia editing, Wikidata, schema.org at the engineering level',
+      'Stub-flag cleanup cadence — every 30 days, we re-engineer remaining stub sources against fresh company data and write the next Round',
       'Quarterly "AI share-of-voice" board presentation',
       'Coordination with PR / Comms on launch events',
       'Buyout option for white-labeling the audit SaaS to your domain',
@@ -124,13 +126,17 @@ export default function ServicesPage() {
                 <span className="col-span-2 md:col-span-1 font-data text-muted text-sm">
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span className="col-span-10 md:col-span-4 font-display text-2xl text-ink" style={{ fontWeight: 580 }}>
+                <span className="col-span-10 md:col-span-3 font-display text-2xl text-ink" style={{ fontWeight: 580 }}>
                   {s.name}
                 </span>
-                <span className={`col-span-6 md:col-span-1 eyebrow ${s.effort === 'low' ? 'text-ok' : s.effort === 'medium' ? 'text-signal' : 'text-muted'}`}>
-                  {s.effort} effort
-                </span>
-                <p className="col-span-12 md:col-span-6 text-ink leading-relaxed">{s.why}</p>
+                <div className="col-span-12 md:col-span-3 flex items-baseline gap-3 mb-2 md:mb-0">
+                  <span className={`eyebrow ${s.work === 'Foundational' ? 'text-ok' : s.work === 'Editorial' ? 'text-signal' : s.work === 'Watched' ? 'text-muted' : 'text-ink'}`}>
+                    {s.work}
+                  </span>
+                  <span className="text-xs text-muted font-data">·</span>
+                  <span className="text-xs text-muted font-data">{s.dayBadge}</span>
+                </div>
+                <p className="col-span-12 md:col-span-5 text-ink leading-relaxed">{s.why}</p>
               </li>
             ))}
           </ul>
