@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { KeysManager } from '@/components/KeysManager';
+import { NextStep } from '@/components/NextStep';
 import { keysStatus } from '@/lib/byok';
 
 export const dynamic = 'force-dynamic';
@@ -139,6 +140,15 @@ export default async function KeysPage() {
           </div>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="Keys saved. Time to see what real engines say about your brand."
+        nextLabel="Run a real audit"
+        nextHref="/audit"
+        altLabel="or read the methodology"
+        altHref="/about"
+        pitch="One Perplexity key gets you a citation-rich web-search audit. Pair with Google AI free for two real models under $5/mo."
+      />
 
       <SiteFooter />
     </main>

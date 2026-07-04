@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { NextStep } from '@/components/NextStep';
+import { LinearTrail } from '@/components/LinearTrail';
 
 export const metadata: Metadata = {
   title: 'Method · AEO Auditor',
@@ -143,6 +145,15 @@ export default function AboutPage() {
           </Link>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="You just read the full methodology."
+        nextLabel="See it on your own brand"
+        nextHref="/audit"
+        altLabel="or read our case study"
+        altHref="/case-study/aeo-auditor"
+        pitch="Ninety seconds. Five engines. One report that tells you exactly what to do next."
+      />
 
       <SiteFooter />
     </main>

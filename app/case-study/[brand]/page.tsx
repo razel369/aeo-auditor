@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { NextStep } from '@/components/NextStep';
+import { LinearTrail } from '@/components/LinearTrail';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,6 +75,7 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
   return (
     <main>
       <SiteHeader />
+      <LinearTrail />
 
       {/* ─── COVER ────────────────────────────────────────────── */}
       <section className="border-b border-ink bg-cream">
@@ -204,6 +207,15 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
           </div>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="You saw the case. Here is how the work actually happens."
+        nextLabel="See the playbook"
+        nextHref={`/case-study/${study.slug}/playbook`}
+        altLabel="or talk to us"
+        altHref="/contact"
+        pitch="Eight sources. Copy-paste drafts. The exact playbook we run on every client."
+      />
 
       <SiteFooter />
     </main>

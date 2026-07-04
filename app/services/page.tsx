@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { NextStep } from '@/components/NextStep';
+import { LinearTrail } from '@/components/LinearTrail';
 
 export const metadata: Metadata = {
   title: 'How we work · AEO Auditor',
@@ -75,6 +77,7 @@ export default function ServicesPage() {
   return (
     <main>
       <SiteHeader />
+      <LinearTrail />
 
       {/* ─── MASTHEAD ─────────────────────────────────────────── */}
       <section className="border-b border-ink">
@@ -250,6 +253,15 @@ export default function ServicesPage() {
           </Link>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="You saw the three tiers. They are real. They have a Day-90 guarantee."
+        nextLabel="See the case study"
+        nextHref="/case-study/aeo-auditor"
+        altLabel="or talk to us first"
+        altHref="/contact"
+        pitch="A live log of getting AEO Auditor itself cited, with the same playbook we run on clients."
+      />
 
       <SiteFooter />
     </main>

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { NextStep } from '@/components/NextStep';
+import { LinearTrail } from '@/components/LinearTrail';
 
 export const metadata: Metadata = {
   title: 'A letter to CMOs · AEO Auditor',
@@ -13,6 +15,7 @@ export default function SalesPage() {
   return (
     <main>
       <SiteHeader />
+      <LinearTrail />
 
       {/* ─── MASTHEAD ─────────────────────────────────────────── */}
       <section className="border-b border-ink">
@@ -218,6 +221,16 @@ export default function SalesPage() {
           </p>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="If this memo matched your situation, the next 30 minutes matter."
+        nextLabel="Talk to us"
+        nextHref="/contact"
+        altLabel="or run a free audit first"
+        altHref="/audit"
+        pitch="We will run your audit live on the call. You see the gap before you commit to anything."
+        inverted
+      />
 
       <SiteFooter />
     </main>

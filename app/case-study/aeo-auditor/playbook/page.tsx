@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { NextStep } from '@/components/NextStep';
+import { LinearTrail } from '@/components/LinearTrail';
 
 export const metadata: Metadata = {
   title: 'Dogfood playbook · AEO Auditor',
@@ -218,6 +220,7 @@ export default function PlaybookPage() {
   return (
     <main>
       <SiteHeader />
+      <LinearTrail />
 
       <section className="border-b border-ink bg-cream">
         <div className="max-w-8xl mx-auto px-8 py-16">
@@ -321,6 +324,15 @@ export default function PlaybookPage() {
           </div>
         </div>
       </section>
+
+      <NextStep
+        cameFrom="You can run this playbook yourself. Or you can hire us to run it."
+        nextLabel="Talk to us"
+        nextHref="/contact"
+        altLabel="or see the case study again"
+        altHref="/case-study/aeo-auditor"
+        pitch="Hiring us means you spend the next 90 days running your business, not editing Wikipedia."
+      />
 
       <SiteFooter />
     </main>
