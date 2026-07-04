@@ -31,5 +31,7 @@ export async function submitContactForm(formData: FormData) {
     source,
   });
 
-  redirect('/contact/thanks');
+  // Pass the company name through so the welcome page can personalize.
+  const qs = company ? `?brand=${encodeURIComponent(company)}` : '';
+  redirect(`/onboarding/welcome${qs}`);
 }
