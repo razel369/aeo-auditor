@@ -148,16 +148,30 @@ export default function SalesPage() {
           </h2>
 
           <p>
-            Three tiers. Setup fees range from $1.5k to $5k. Monthly fees range
-            from $3.5k to $8.5k. For $20M+ ARR brands with their own content team, we
-            slot in as your AI citation operations crew for $15k+/mo. All flat. All
-            monthly.
+            Three tiers, each flat-fee and month-to-month:
           </p>
-
+          <ul className="space-y-2 list-disc pl-6 marker:text-signal">
+            <li>
+              <strong>AI Citation Audit — $900 one-time.</strong> The baseline only.
+              9-source coverage scan + competitor watchlist + ranked 90-day to-do
+              list. No agency work.
+            </li>
+            <li>
+              <strong>Citation Sprint — $2,500/mo, 3 months.</strong> One brand, one
+              category, 5–8 placements, public Day-30 and Day-90 deltas.
+            </li>
+            <li>
+              <strong>Citation Engine — from $4,500/mo, 6-month minimum.</strong>{' '}
+              Continuous cadence, two brands or two markets under one retainer.
+            </li>
+          </ul>
           <p>
-            We are not cheap. We are also the only ones putting the outcome in
-            writing — &quot;if your mention rate has not moved by Day 90, you do not pay
-            for that month.&quot;
+            We are not the cheapest. We are also not the most expensive — published
+            GEO agencies in Q2 2026 (Citable, aivisibilitypartners.com, Nivk, WebFX)
+            all sit within ±25% of our rates for the same scope. Our cost structure
+            is different: we run a deterministic audit (no LLM API), so we can spend
+            agency time on placements, not dashboard plumbing. That is the actual
+            differentiator.
           </p>
 
           <h2 className="font-display text-3xl text-ink pt-8 pb-2" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 60" }}>

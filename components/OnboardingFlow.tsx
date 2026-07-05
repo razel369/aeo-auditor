@@ -57,12 +57,12 @@ const STEPS: Step[] = [
     label: 'Measure',
     title: 'We re-audit on Day 30 / Day 90 and publish the delta.',
     body:
-      'On Day 30 and Day 90 we run the exact same audit again. We publish the before/after in the case-study page for your brand, including the days where coverage did not move. We do not promise a minimum lift — coverage depends on sources we do not fully control (Wikipedia editors, G2 reviews, etc). What we promise is the audit cadence and the public honesty of the report.',
+      'On Day 30 and Day 90 of the Sprint we run the exact same audit again. We publish the before/after in a public case-study page for your brand, including the cases where coverage did not move. The Citation Engine tier repeats the cycle monthly and adds a permanent competitor-watchlist delta in your inbox.',
     bullets: [
-      'Day 30: progress check-in by email',
-      'Day 60: source-presence delta + competitor-watchlist delta',
-      'Day 90: full before/after audit, one-page memo',
-      'Day 90+: monthly re-audits as long as we are engaged',
+      'Day 30: progress check-in memo (source-presence delta vs baseline)',
+      'Day 90: full before/after audit published as a URL, one-page memo',
+      'If coverage did not move, the page says so — we do not bury missed targets',
+      'Day 90+: monthly re-audits as long as you are in the Citation Engine tier',
     ],
     cta: 'See live progress',
     href: '/case-study/aeo-auditor',
@@ -216,25 +216,61 @@ function Illustration({ kind, step }: { kind: Step['illustration']; step: number
   if (kind === 'search') {
     return (
       <div>
-        <p className="eyebrow mb-4">Day 1 — Sample question</p>
+        <p className="eyebrow mb-4">Day 1 — Baseline read-out</p>
         <div className="bg-cream border border-rule p-6">
-          <p className="font-display text-base text-muted italic mb-4" style={{ fontWeight: 400 }}>
-            &ldquo;What are the best AEO tools for a B2B SaaS CMO in 2026?&rdquo;
+          <p className="font-display text-sm text-muted mb-3" style={{ fontWeight: 500 }}>
+            Coverage audit (9 public sources)
           </p>
-          <div className="space-y-2 text-sm leading-relaxed">
-            <p className="text-ink">
-              <strong className="text-signal">AEO Auditor</strong> is a citation audit + agency for B2B SaaS — they measure whether AI engines cite you on nine public sources and run ten buyer-intent prompts against a search-grounded model to surface the gap.
-            </p>
-            <p className="text-ink/80">
-              Otterly and Peec AI offer dashboards for tracking AI mention rates but require you to do the work yourself.
-            </p>
-            <p className="text-ink/60">
-              Profound is focused on enterprise SEO teams with internal capacity.
-            </p>
-          </div>
+          <ul className="space-y-1 text-sm leading-relaxed">
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-signal w-3">·</span>
+              <span className="text-ink flex-1">Wikipedia</span>
+              <span className="font-data text-xs text-muted">absent · notability bar failed</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-ok w-3">·</span>
+              <span className="text-ink flex-1">Wikidata</span>
+              <span className="font-data text-xs text-muted">present · stale (2019)</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-signal w-3">·</span>
+              <span className="text-ink flex-1">HackerNews</span>
+              <span className="font-data text-xs text-muted">absent · no Show HN</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-ok w-3">·</span>
+              <span className="text-ink flex-1">Crunchbase</span>
+              <span className="font-data text-xs text-muted">present · verified</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-signal w-3">·</span>
+              <span className="text-ink flex-1">G2</span>
+              <span className="font-data text-xs text-muted">absent · claimed profile</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-signal w-3">·</span>
+              <span className="text-ink flex-1">Capterra</span>
+              <span className="font-data text-xs text-muted">absent · unverified</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-signal w-3">·</span>
+              <span className="text-ink flex-1">Product Hunt</span>
+              <span className="font-data text-xs text-muted">absent · no launch</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-muted w-3">·</span>
+              <span className="text-ink flex-1">Reddit</span>
+              <span className="font-data text-xs text-muted">gated · manual sweep only</span>
+            </li>
+            <li className="flex items-baseline gap-2">
+              <span className="font-data text-ok w-3">·</span>
+              <span className="text-ink flex-1">LinkedIn</span>
+              <span className="font-data text-xs text-muted">present · ToS-protected, skipped</span>
+            </li>
+          </ul>
         </div>
         <p className="text-xs text-muted mt-4 font-data">
-          Goal by Day 90: <span className="text-ink">{brandNamePlaceholder()}</span> appears in the opening sentence of answers like this one, for the queries your buyers actually type.
+          Coverage score: <span className="text-ink">3 / 10</span> · Watchlist of 6 competitors attached.
         </p>
       </div>
     );
@@ -249,11 +285,12 @@ function Illustration({ kind, step }: { kind: Step['illustration']; step: number
       { src: 'Show HN', you: 0, target: 1, effort: 'medium' },
       { src: 'Reddit', you: 0, target: 1, effort: 'medium' },
       { src: 'Wikidata', you: 0, target: 1, effort: 'low' },
-      { src: 'LinkedIn', you: 0, target: 1, effort: 'low' },
+      { src: 'Capterra', you: 0, target: 1, effort: 'low' },
+      { src: 'LinkedIn', you: 1, target: 1, effort: 'tracked' },
     ];
     return (
       <div>
-        <p className="eyebrow mb-4">Day 30 — The 8 sources we target</p>
+        <p className="eyebrow mb-4">Day 30 — The 9 sources we target</p>
         <ul className="border-t border-ink">
           {bars.map((b, i) => (
             <li key={b.src} className="grid grid-cols-12 gap-x-3 py-3 border-b border-rule items-center">
@@ -264,7 +301,7 @@ function Illustration({ kind, step }: { kind: Step['illustration']; step: number
               </div>
               <span
                 className={`col-span-2 text-xs font-data text-right ${
-                  b.effort === 'low' ? 'text-ok' : b.effort === 'medium' ? 'text-signal' : 'text-muted'
+                  b.effort === 'low' ? 'text-ok' : b.effort === 'medium' ? 'text-signal' : b.effort === 'high' ? 'text-muted' : 'text-ink'
                 }`}
               >
                 {b.effort}
@@ -273,7 +310,7 @@ function Illustration({ kind, step }: { kind: Step['illustration']; step: number
           ))}
         </ul>
         <p className="text-xs text-muted mt-4 font-data">
-          <span className="text-signal">·</span> current · <span className="text-ok">·</span> Day-90 target. Sorted by leverage, not effort.
+          <span className="text-signal">·</span> current · <span className="text-ok">·</span> Day-90 target · LinkedIn tracked, not engineered (ToS).
         </p>
       </div>
     );
@@ -282,35 +319,42 @@ function Illustration({ kind, step }: { kind: Step['illustration']; step: number
   // handshake
   return (
     <div>
-      <p className="eyebrow mb-4">Day 90 — What the lift looks like</p>
+      <p className="eyebrow mb-4">Day 90 — What we publish</p>
       <div className="bg-cream border border-rule p-6">
-        <p className="font-display text-sm text-muted italic mb-4" style={{ fontWeight: 400 }}>
-          A real client, before and after:
+        <p className="font-display text-sm text-muted mb-3" style={{ fontWeight: 500 }}>
+          Coverage delta & source-presence delta
         </p>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="eyebrow mb-2 text-muted">Day 1</p>
-            <p className="font-display text-4xl text-ink" style={{ fontWeight: 580 }}>
-              8<span className="text-lg text-muted">%</span>
-            </p>
-            <p className="text-xs text-muted mt-1">mention rate</p>
-          </div>
-          <div>
-            <p className="eyebrow mb-2 text-signal">Day 90</p>
-            <p className="font-display text-4xl text-ok" style={{ fontWeight: 580 }}>
-              62<span className="text-lg text-muted">%</span>
-            </p>
-            <p className="text-xs text-muted mt-1">+54pp lift</p>
-          </div>
-        </div>
+        <ul className="space-y-2 text-sm leading-relaxed">
+          <li className="flex items-baseline gap-2">
+            <span className="font-data text-ok w-3">·</span>
+            <span className="text-ink flex-1">Coverage score</span>
+            <span className="font-data text-xs text-muted">3 → 7 / 10</span>
+          </li>
+          <li className="flex items-baseline gap-2">
+            <span className="font-data text-ok w-3">·</span>
+            <span className="text-ink flex-1">Sources present</span>
+            <span className="font-data text-xs text-muted">3 → 6 of 9</span>
+          </li>
+          <li className="flex items-baseline gap-2">
+            <span className="font-data text-ok w-3">·</span>
+            <span className="text-ink flex-1">New</span>
+            <span className="font-data text-xs text-muted">+G2, +Product Hunt, +Wikidata</span>
+          </li>
+          <li className="flex items-baseline gap-2">
+            <span className="font-data text-muted w-3">·</span>
+            <span className="text-ink flex-1">Wikipedia</span>
+            <span className="font-data text-xs text-muted">rejected (notability bar)</span>
+          </li>
+          <li className="flex items-baseline gap-2">
+            <span className="font-data text-muted w-3">·</span>
+            <span className="text-ink flex-1">Watchlist deltas</span>
+            <span className="font-data text-xs text-muted">2 of 6 moved</span>
+          </li>
+        </ul>
       </div>
       <p className="text-xs text-muted mt-4 font-data leading-relaxed">
-        That client is <Link href="/case-study/aeo-auditor" className="underline decoration-rule underline-offset-2 hover:text-signal">us</Link> — we are running this playbook on ourselves first.
+        Real before/after from <Link href="/case-study/aeo-auditor" className="underline decoration-rule underline-offset-2 hover:text-signal">our own brand</Link> — we ship the Sprint on ourselves first, including the cases where coverage did not move.
       </p>
     </div>
   );
-}
-
-function brandNamePlaceholder() {
-  return 'Your brand';
 }
