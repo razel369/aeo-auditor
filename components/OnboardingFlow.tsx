@@ -24,11 +24,11 @@ const STEPS: Step[] = [
     label: 'Audit',
     title: 'We measure exactly where you stand today.',
     body:
-      'Before we touch a single source, we need a baseline. The audit runs against two layers: (a) nine public sources (Wikipedia, Wikidata, HackerNews, Crunchbase, G2, Capterra, Product Hunt, Reddit, LinkedIn) — checked for presence, freshness, and quality; (b) ten buyer-intent prompts through Gemini 2.5 Flash with Google Search grounding, treated as a proxy for what ChatGPT Search, Perplexity, and AI Overviews would also return (they all read from the same Google index).',
+      'Before we touch a single source, we need a baseline. The audit is pure deterministic — no LLM API, no rate limits. We check the brand against nine public sources (Wikipedia, Wikidata, HackerNews, Crunchbase, G2, Capterra, Product Hunt, Reddit, LinkedIn), score coverage, and surface the gaps that an AI engine would have to read from. Done in ~10 seconds.',
     bullets: [
-      'Coverage score across the 9 public sources (live + stub + gated + skipped)',
-      'Engine score: how often the brand shows up in the cited URL set returned by Gemini grounding',
-      'Share-of-voice: brand vs 5-8 known competitors in the cited set',
+      'Coverage score across the 9 public sources (live + URL-presence + gated + skipped)',
+      'Source-by-source presence, freshness, and quality signals',
+      'Hand-curated competitor watchlist for your category (CRM, PM, analytics, fintech, ...)',
       'Citation Gap — sources you are missing, ranked by effort to land',
     ],
     cta: 'Run my baseline',
@@ -38,9 +38,9 @@ const STEPS: Step[] = [
   {
     n: 2,
     label: 'Place',
-    title: 'We get you onto the sources that show up in our audits.',
+    title: 'We get you onto the sources the audit is measuring.',
     body:
-      'The audit probes nine public sources: Wikipedia, Wikidata, HackerNews, Crunchbase, G2, Capterra, Product Hunt, Reddit, LinkedIn. We do not write blog posts. We submit you to the places that move the needle — and we are honest about which ones we can move (live adapters) vs. which require analyst work (stub / gated / skipped).',
+      'The audit probes nine public sources. We do not write blog posts. We submit you to the places that move the needle — and we are honest about which ones we can move (live adapters) vs. which require analyst work (URL-presence / gated / skipped).',
     bullets: [
       'Submissions to G2, Crunchbase, Capterra, Product Hunt, LinkedIn',
       'Wikipedia stub if you meet the notability bar (3 independent press citations)',
@@ -57,10 +57,10 @@ const STEPS: Step[] = [
     label: 'Measure',
     title: 'We re-audit on Day 30 / Day 90 and publish the delta.',
     body:
-      'On Day 30 and Day 90 we run the exact same audit again. We publish the before/after in the case-study page for your brand, including the days where rate did not move. We do not promise a minimum lift — citation rates depend on sources we do not fully control (Wikipedia editors, G2 reviews, etc). What we promise is the audit cadence and the public honesty of the report.',
+      'On Day 30 and Day 90 we run the exact same audit again. We publish the before/after in the case-study page for your brand, including the days where coverage did not move. We do not promise a minimum lift — coverage depends on sources we do not fully control (Wikipedia editors, G2 reviews, etc). What we promise is the audit cadence and the public honesty of the report.',
     bullets: [
       'Day 30: progress check-in by email',
-      'Day 60: competitor-watchlist delta',
+      'Day 60: source-presence delta + competitor-watchlist delta',
       'Day 90: full before/after audit, one-page memo',
       'Day 90+: monthly re-audits as long as we are engaged',
     ],

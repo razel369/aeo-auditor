@@ -5,33 +5,30 @@ interface Props {
 }
 
 /**
- * Methodology disclosure that lives next to any proxy-data chart or score.
+ * Methodology disclosure that lives next to any audit result.
  *
- * Audit numbers on this site come from two layers:
- *   1. Live adapters (Wikipedia, Wikidata, HackerNews, plus URL-presence checks
- *      for Crunchbase, G2, Capterra, Product Hunt) — these return real, public
- *      data from the source's own API or homepage.
- *   2. Stub / gated / skipped adapters (Crunchbase, G2, Capterra, Product Hunt
- *      content; Reddit; LinkedIn) — these confirm URL presence only. Content
- *      quality is verified by an analyst during engagement, not by automation.
+ * v0.9: pure deterministic. The audit numbers come from two layers:
+ *   1. Live adapters (Wikipedia MediaWiki API, Wikidata Wikibase API, HackerNews
+ *      Algolia search) — these return real, public data from the source's own API.
+ *   2. URL-presence checks (Crunchbase, G2, Capterra, Product Hunt) — we confirm
+ *      the URL is reachable; content quality is verified by an analyst during
+ *      engagement, not by automation.
  *
- * Engine-side scoring uses Gemini 2.5 Flash with Google Search grounding as a
- * proxy for ChatGPT Search, Perplexity, and Google AI Overviews. The proxy
- * assumption: those engines read from the same Google index Gemini grounds on.
- * Where the proxy breaks (e.g. ChatGPT-4 with browse enabled, Perplexity with
- * its own crawler) is an open research question we have not measured.
+ * Reddit is gated and LinkedIn is skipped — both are tracked but not auto-scanned.
  *
- * If the audit shows a "live" or "stub" status on a source, treat the result
- * as real-time and reproducible. Treat the share-of-voice and engine-score
- * numbers as proxies with the limitations above.
+ * v0.9 dropped the engine probe layer (was Gemini 2.5 Flash with Google Search
+ * grounding) entirely, so there is no third-party LLM API call and no rate limit
+ * beyond what the public sources themselves impose.
+ *
+ * The watchlist is hand-curated per category. We do not measure how often any AI
+ * engine cites a given competitor.
  */
 export function MethodologyNote({ variant = 'inline', className = '' }: Props) {
   if (variant === 'inline') {
     return (
       <p className={`text-xs text-muted font-data leading-relaxed ${className}`}>
-        Live adapters + URL-presence checks. Engine score is a Gemini-grounded proxy for
-        ChatGPT Search, Perplexity, and Google AI Overviews — they read from the same Google
-        index. We do not claim this measures every engine.
+        v0.9 · pure deterministic. 9 public sources + hand-curated competitor watchlist.
+        No LLM API, no rate limits beyond the public sources themselves.
       </p>
     );
   }
@@ -43,26 +40,28 @@ export function MethodologyNote({ variant = 'inline', className = '' }: Props) {
         <li>
           <strong className="text-ink">Source coverage</strong> uses live adapters for
           Wikipedia, Wikidata, and HackerNews, plus URL-presence checks for Crunchbase, G2,
-          Capterra, and Product Hunt. Reddit and LinkedIn are tracked but not auto-scanned
-          (gated / ToS).
+          Capterra, and Product Hunt. Reddit is gated (tracked only); LinkedIn is skipped
+          (ToS).
         </li>
         <li>
-          <strong className="text-ink">Engine score</strong> runs 10 buyer-intent prompts
-          through Gemini 2.5 Flash with Google Search grounding and counts how often your
-          brand shows up in the cited URL set. This is a proxy for ChatGPT Search,
-          Perplexity, and Google AI Overviews — they all read from the same Google index.
-          It does not measure ChatGPT-4 with browse enabled, Perplexity's own crawler, or
-          offline-memory engines.
+          <strong className="text-ink">Coverage score</strong> is a weighted sum across the 9
+          sources. Live adapters can score up to 10/10; stub is capped at 4/10; gated and
+          skipped return 0. Weights reflect adapter reliability, not citation rate.
         </li>
         <li>
-          <strong className="text-ink">Share-of-voice</strong> matches the cited URL set
-          against a curated competitor list per category and against any competitor names
-          the model writes into its answer.
+          <strong className="text-ink">Watchlist</strong> is hand-curated per category. We do
+          not measure how often AI engines cite any specific brand in the watchlist — that
+          would require an LLM API, which we deliberately do not use.
         </li>
         <li>
-          <strong className="text-ink">What we do not claim</strong>: a citation-rate
-          benchmark against the full LLM-training corpus; an offline-memory rate; or that
-          any particular source moves any particular engine.
+          <strong className="text-ink">Drift</strong> compares two audits for the same brand on
+          coverage score and source presence. Both are deterministic, so the delta is exact.
+        </li>
+        <li>
+          <strong className="text-ink">What we do not claim</strong>: any particular source
+          moves any particular engine; a citation-rate benchmark against the full LLM
+          training corpus; an offline-memory rate; that any specific prompt result maps to
+          what a real buyer would see.
         </li>
       </ul>
     </aside>

@@ -13,8 +13,8 @@ interface CaseStudy {
   slug: string;
   brand: string;
   category: string;
-  baseline: { mentionRate: number; weightedRate: number; offlineMemory: number; engines: number; topSources: string[] };
-  target: { mentionRate: number; weightedRate: number; offlineMemory: number };
+  baseline: { coverage: number; sourcesPresent: number; sourcesTotal: number; topSources: string[] };
+  target: { coverage: number; sourcesPresent: number };
   placements: { source: string; status: string; date: string; detail: string }[];
   wins: { date: string; what: string }[];
   memo: string;
@@ -26,13 +26,12 @@ const STUDIES: Record<string, CaseStudy> = {
     brand: 'AEO Auditor',
     category: 'AI citation agency',
     baseline: {
-      mentionRate: 0.08,
-      weightedRate: 0.04,
-      offlineMemory: 0.0,
-      engines: 1,
-      topSources: ['news.ycombinator.com'],
+      coverage: 0,
+      sourcesPresent: 0,
+      sourcesTotal: 9,
+      topSources: [],
     },
-    target: { mentionRate: 0.55, weightedRate: 0.45, offlineMemory: 0.30 },
+    target: { coverage: 0.7, sourcesPresent: 7 },
     placements: [
       { source: 'Crunchbase', status: 'submitted', date: 'Jul 2026', detail: 'Company profile + funding history. Approval pending.' },
       { source: 'Product Hunt', status: 'scheduled', date: 'Aug 2026', detail: 'Launching as "Show HN alternative: AEO audit SaaS + agency".' },
@@ -44,8 +43,8 @@ const STUDIES: Record<string, CaseStudy> = {
       { source: 'Reddit r/SEO + r/Entrepreneur', status: 'in progress', date: '—', detail: 'Genuine engagement strategy. First post next week.' },
     ],
     wins: [
-      { date: 'Jul 4, 2026', what: 'Day-1 baseline audit captured: 8% mention rate, 0% offline memory across the engines we probe.' },
-      { date: 'Jul 4, 2026', what: 'Citation OS dashboard deployed to production (engine audit, weighted rate, citation gap).' },
+      { date: 'Jul 5, 2026', what: 'v0.9 launched — pure-deterministic audit, no third-party LLM API, no rate limits beyond the public sources themselves.' },
+      { date: 'Jul 4, 2026', what: 'v0.8 honesty pass shipped — unsubstantiated claims removed, methodology disclosures added.' },
       { date: 'Jul 4, 2026', what: 'This case study page shipped as a public commitment — read by future clients and by our future selves.' },
     ],
     memo: 'We are using our own audit SaaS as the Dogfood test. The target and lift numbers below are aspirations, not historical data — Day-90 has not elapsed yet. We will revisit this page at Day 30 / Day 60 / Day 90 and either publish the real delta or honestly report that we missed.',
@@ -72,12 +71,20 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
   if (!study) notFound();
 
   const latest = await getLatestAudit(study.brand).catch(() => null);
-  const liveMention = latest ? Math.round(latest.mention_rate * 100) : null;
-  const liveWeighted = latest ? Math.round((latest.weighted_mention_rate ?? 0) * 100) : null;
-  const liveOffline = latest ? Math.round((latest.offline_memory_rate ?? 0) * 100) : null;
+  const liveCoverage = latest
+    ? (latest as unknown as { overall_score?: number }).overall_score ?? null
+    : null;
+  let liveSourcesPresent: number | null = null;
+  try {
+    const profilesJson = (latest as unknown as { profiles_json?: string } | null)?.profiles_json;
+    if (profilesJson) {
+      const profiles = JSON.parse(profilesJson) as Array<{ exists?: boolean }>;
+      liveSourcesPresent = Math.min(9, profiles.filter((p) => p.exists).length);
+    }
+  } catch { /* skip */ }
   const liveAt = latest ? new Date(latest.created_at).toISOString().slice(0, 10) : null;
 
-  const lift = (study.target.mentionRate - study.baseline.mentionRate) * 100;
+  const lift = (study.target.coverage - study.baseline.coverage) * 100;
 
   return (
     <main>
@@ -99,34 +106,34 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
           </p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12 pt-10 border-t border-ink text-sm">
             <div>
-              <p className="eyebrow mb-2">Live mention rate</p>
+              <p className="eyebrow mb-2">Live coverage score</p>
               <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
-                {liveMention === null ? '—' : `${liveMention}`}<span className="text-2xl text-muted">{liveMention === null ? '' : '%'}</span>
+                {liveCoverage === null ? '—' : `${liveCoverage}`}<span className="text-2xl text-muted">{liveCoverage === null ? '' : '/100'}</span>
               </p>
               <p className="text-xs text-muted font-data mt-1">
                 {liveAt ? `re-run ${liveAt}` : 'no audit yet · run /audit'}
               </p>
             </div>
             <div>
-              <p className="eyebrow mb-2">Weighted rate (live)</p>
+              <p className="eyebrow mb-2">Sources present (live)</p>
               <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
-                {liveWeighted === null ? '—' : `${liveWeighted}`}<span className="text-2xl text-muted">{liveWeighted === null ? '' : '%'}</span>
+                {liveSourcesPresent === null ? '—' : `${liveSourcesPresent}`}<span className="text-2xl text-muted">/9</span>
               </p>
-              <p className="text-xs text-muted font-data mt-1">cites ranked by position</p>
+              <p className="text-xs text-muted font-data mt-1">deterministic scan</p>
             </div>
             <div>
               <p className="eyebrow mb-2">Target by Day 90</p>
               <p className="font-display text-5xl text-ok" style={{ fontWeight: 580 }}>
-                {Math.round(study.target.mentionRate * 100)}<span className="text-2xl text-muted">%</span>
+                {Math.round(study.target.coverage * 100)}<span className="text-2xl text-muted">/100</span>
               </p>
               <p className="text-xs text-muted font-data mt-1">aspirational · not historical</p>
             </div>
             <div>
-              <p className="eyebrow mb-2">Offline memory</p>
-              <p className="font-display text-5xl text-ink" style={{ fontWeight: 580 }}>
-                {liveOffline === null ? '—' : `${liveOffline}`}<span className="text-2xl text-muted">{liveOffline === null ? '' : '%'}</span>
+              <p className="eyebrow mb-2">Engine</p>
+              <p className="font-display text-2xl text-ink leading-tight mt-3" style={{ fontWeight: 580 }}>
+                v0.9 deterministic
               </p>
-              <p className="text-xs text-muted font-data mt-1">live · Gemini-grounded proxy</p>
+              <p className="font-data text-xs text-muted mt-1">no third-party LLM API</p>
             </div>
           </div>
         </div>
@@ -156,15 +163,15 @@ export default async function CaseStudyPage({ params }: { params: Promise<{ bran
               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-8 gap-y-8 pt-10 border-t border-ink">
                 <div>
                   <p className="eyebrow mb-2">Coverage score</p>
-                  <p className="font-display text-7xl text-signal leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>{liveMention === null ? '—' : liveMention}<span className="text-2xl text-muted">/100</span></p>
+                  <p className="font-display text-7xl text-signal leading-none" style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>{liveCoverage === null ? '—' : liveCoverage}<span className="text-2xl text-muted">/100</span></p>
                   <p className="text-xs text-muted font-data mt-2">{liveAt ? `from audit ${liveAt}` : 'no audit yet'}</p>
                 </div>
                 <div>
                   <p className="eyebrow mb-2">Sources cited</p>
                   <p className="font-display text-7xl text-ink leading-none" style={{ fontWeight: 580 }}>
-                    {liveMention === null ? '—' : Math.min(9, Math.max(0, Math.round((liveMention / 100) * 9)))}<span className="text-2xl text-muted">/9</span>
+                    {liveSourcesPresent === null ? '—' : `${liveSourcesPresent}`}<span className="text-2xl text-muted">/9</span>
                   </p>
-                  <p className="text-xs text-muted font-data mt-2">approximation · re-run for exact count</p>
+                  <p className="text-xs text-muted font-data mt-2">deterministic presence check</p>
                 </div>
                 <div>
                   <p className="eyebrow mb-2">Top work shape</p>

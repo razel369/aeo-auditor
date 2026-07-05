@@ -30,7 +30,7 @@ const TIERS = [
     monthly: '$3,500/mo',
     summary: 'For one brand, one category. Get into 4-6 high-leverage sources, full audit + re-audit at Day 90.',
     bullets: [
-      'Baseline audit (9 sources + 10 buyer-intent prompts, Gemini-grounded)',
+      'Baseline audit (9 public sources + competitor watchlist, no API key required)',
       'Citation gap analysis with ranked to-do list',
       'We submit you to G2, Capterra, Crunchbase, LinkedIn, PH',
       'Reddit engagement strategy + 2-3 seeded posts (genuine, never astroturfed)',
@@ -65,7 +65,7 @@ const TIERS = [
       'Everything in Citation Engine',
       'We manage your Wikipedia editing, Wikidata, schema.org at the engineering level',
       'Stub-flag cleanup cadence — every 30 days, we re-engineer remaining stub sources against fresh company data and write the next Round',
-      'Quarterly "AI share-of-voice" board presentation',
+      'Quarterly coverage-delta board presentation',
       'Coordination with PR / Comms on launch events',
       'Buyout option for white-labeling the audit SaaS to your domain',
     ],

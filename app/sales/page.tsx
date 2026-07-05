@@ -112,28 +112,30 @@ export default function SalesPage() {
 
           <ol className="space-y-3 list-decimal pl-6 marker:text-signal marker:font-display">
             <li>
-              <strong>Day 1 &mdash; baseline.</strong> We run a free audit across 8
-              engines, including 3 offline-memory engines. You get a one-page report
-              with your mention rate, weighted mention rate, offline memory rate, and
-              citation gap analysis.
+              <strong>Day 1 &mdash; baseline.</strong> We run a free audit against 9
+              public sources (Wikipedia, Wikidata, HackerNews, Crunchbase, G2,
+              Capterra, Product Hunt, Reddit, LinkedIn). You get a one-page report
+              with your coverage score, source-by-source presence, and citation gap
+              analysis. No API key required — the audit is pure deterministic.
             </li>
             <li>
               <strong>Day 1-7 &mdash; submission plan.</strong> We map every source
-              AI engines cite in your category, cross-reference against where you
-              currently sit, and produce the to-do list. Items are sorted by effort
-              (low, medium, high) and citation leverage.
+              we measured against where you currently sit, and produce the to-do
+              list. Items are sorted by effort (low, medium, high) and coverage
+              leverage.
             </li>
             <li>
               <strong>Day 7-60 &mdash; the placements.</strong> We submit you to G2,
               Capterra, GetApp, Crunchbase, LinkedIn, and Product Hunt. We draft and
               schedule your Show HN, your Wikipedia stub (if you meet the
               notability bar), your Wikidata item. We write the comparison page
-              ChatGPT will quote and we email-pitch it to the right newsletters.
+              AI engines will quote and we email-pitch it to the right newsletters.
             </li>
             <li>
               <strong>Day 60-90 &mdash; re-audit.</strong> We run the same audit
               again. The before/after is published in your case-study page. If the
-              rate did not move, the page says so — we do not bury missed targets.
+              coverage did not move, the page says so — we do not bury missed
+              targets.
             </li>
             <li>
               <strong>Day 90+ &mdash; watchlist.</strong> Monthly re-audits. If a

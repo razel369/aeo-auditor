@@ -1,20 +1,17 @@
 /**
  * Competitor seed library.
  *
- * v0.7: For each category the buyer names, we hand-seed a small list of
- * well-known competitors. The buyer can also pass a custom list via the
- * audit request. The seed list is intentionally conservative — we'd rather
- * miss a niche startup than wrongly name a brand.
+ * v0.9: pure deterministic. The library holds hand-curated watchlists of
+ * well-known competitors per category. It is no longer coupled to any
+ * engine probe — we do not measure how often AI engines cite these brands,
+ * we only give the user a starting list of competitors to track themselves.
  *
- * Domain matching: each competitor maps to one or more canonical domains
- * (the brand site + Wikipedia). We strip 'www.' and lower-case everything.
+ * Domain matching is used by the audit to surface a small signal: "your
+ * brand shares a hostname with one of these watchlist entries" — useful as
+ * a sanity check, not as authoritative citation data.
  *
- * Text matching: we tokenize the brand name (split on whitespace, drop
- * tokens shorter than 3 chars) and match either the full brand string or
- * each token against the model's text.
- *
- * For categories not in the seed list, we return an empty list — the audit
- * still works, just without competitor comparison for that category.
+ * Categories not in the seed list return an empty watchlist. The audit
+ * still works, just without a watchlist for that category.
  */
 
 export interface CompetitorSeed {
@@ -146,134 +143,16 @@ export function competitorsForCategory(category: string | null): CompetitorSeed[
   const cat = normalizeCategory(category);
   if (!cat) return FALLBACK;
   if (COMPETITOR_SEEDS[cat]) return COMPETITOR_SEEDS[cat];
-  // Try matching a key as a substring of the category.
   for (const key of Object.keys(COMPETITOR_SEEDS)) {
     if (cat.includes(key) || key.includes(cat)) return COMPETITOR_SEEDS[key];
   }
   return FALLBACK;
 }
 
-/** Tokenize a brand for text-mention matching (same logic as engine-adapters). */
-export function tokenize(brand: string): string[] {
-  const cleaned = brand.trim().toLowerCase();
-  if (!cleaned) return [];
-  const tokens = cleaned.split(/[\s\-_]+/).filter((t) => t.length >= 3);
-  return Array.from(new Set([cleaned, ...tokens]));
+export function categoryHasWatchlist(category: string | null): boolean {
+  return competitorsForCategory(category).length > 0;
 }
 
-function hostnameOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '').toLowerCase();
-  } catch {
-    return '';
-  }
-}
-
-export interface CompetitorSighting {
-  name: string;
-  urlCount: number;     // how many of this competitor's domains appeared in cited URLs
-  textMention: boolean; // was the competitor named in the model text
-  domainsHit: string[]; // actual cited domains that matched this competitor
-}
-
-export interface CompetitorAnalysis {
-  competitors: CompetitorSeed[];   // input list (may be empty)
-  sightings: CompetitorSighting[];
-  brandMentionedInProbe: boolean;  // any probe named the brand (text or url)
-  shareOfVoice: number;            // 0..1: brand_cites / (brand_cites + competitor_cites)
-  totalBrandCitations: number;     // brandMentionedUrl count across probes
-  totalCompetitorCitations: number;
-  totalProbesWithUrls: number;
-}
-
-/**
- * Given a list of competitor seeds and engine probe results, produce a
- * share-of-voice analysis. The brand is treated as one "competitor" — its
- * total URL hits are subtracted from the pool to compute the brand's own SOV.
- */
-export function analyzeCompetitors(args: {
-  brand: string;
-  category: string | null;
-  customCompetitors?: CompetitorSeed[];
-  probes: { citedUrls: string[]; citedDomains: string[]; brandMentionedUrl: boolean; brandMentionedText: boolean; textExcerpt: string }[];
-}): CompetitorAnalysis {
-  const seed = competitorsForCategory(args.category);
-  const competitors = args.customCompetitors && args.customCompetitors.length > 0
-    ? args.customCompetitors
-    : seed;
-  const brandTokens = tokenize(args.brand);
-
-  const sightingMap = new Map<string, CompetitorSighting>();
-  for (const c of competitors) {
-    sightingMap.set(c.name, {
-      name: c.name,
-      urlCount: 0,
-      textMention: false,
-      domainsHit: [],
-    });
-  }
-
-  const competitorDomainsToName = new Map<string, string>();
-  for (const c of competitors) {
-    for (const d of c.domains) {
-      competitorDomainsToName.set(d.toLowerCase(), c.name);
-    }
-    // Also catch subdomain wildcards: anything ending with the domain.
-    for (const d of c.domains) {
-      competitorDomainsToName.set(`.${d.toLowerCase()}`, c.name);
-    }
-  }
-
-  let brandCitations = 0;
-  let totalProbesWithUrls = 0;
-
-  for (const p of args.probes) {
-    if (p.citedUrls.length === 0) continue;
-    totalProbesWithUrls += 1;
-    if (p.brandMentionedUrl) brandCitations += 1;
-
-    // URL/domain match per competitor
-    const seenForThisProbe = new Set<string>();
-    for (const u of p.citedUrls) {
-      const host = hostnameOf(u);
-      if (!host) continue;
-      for (const [pattern, compName] of competitorDomainsToName.entries()) {
-        if (host === pattern || host.endsWith(pattern)) {
-          if (seenForThisProbe.has(compName)) continue;
-          seenForThisProbe.add(compName);
-          const s = sightingMap.get(compName);
-          if (s) {
-            s.urlCount += 1;
-            if (!s.domainsHit.includes(host)) s.domainsHit.push(host);
-          }
-        }
-      }
-    }
-
-    // Text-mention match per competitor
-    const lowerText = (p.textExcerpt || '').toLowerCase();
-    for (const c of competitors) {
-      const tokens = tokenize(c.name);
-      if (tokens.some((t) => lowerText.includes(t))) {
-        const s = sightingMap.get(c.name);
-        if (s) s.textMention = true;
-      }
-    }
-  }
-
-  const sightings = Array.from(sightingMap.values()).sort((a, b) => b.urlCount - a.urlCount);
-  const totalCompetitorCitations = sightings.reduce((sum, s) => sum + s.urlCount, 0);
-  const denom = brandCitations + totalCompetitorCitations;
-  const shareOfVoice = denom === 0 ? 0 : brandCitations / denom;
-  const brandMentionedInProbe = args.probes.some((p) => p.brandMentionedUrl || p.brandMentionedText);
-
-  return {
-    competitors,
-    sightings,
-    brandMentionedInProbe,
-    shareOfVoice,
-    totalBrandCitations: brandCitations,
-    totalCompetitorCitations,
-    totalProbesWithUrls,
-  };
+export function watchlistSize(category: string | null): number {
+  return competitorsForCategory(category).length;
 }

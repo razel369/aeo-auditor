@@ -27,7 +27,7 @@ export function AuditHero() {
     <section className="relative overflow-hidden border-b border-ink">
       <div className="max-w-8xl mx-auto px-8 pt-24 pb-28 md:pt-32 md:pb-36">
         <div className="max-w-5xl">
-          <p className="eyebrow text-signal mb-8">Audit · v0.5</p>
+          <p className="eyebrow text-signal mb-8">Audit · v0.9</p>
           <h1 className="font-display text-display text-ink mb-10 leading-[0.95]"
               style={{ fontWeight: 580, fontVariationSettings: "'opsz' 144, 'SOFT' 30" }}>
             Where AI engines{' '}
@@ -37,10 +37,10 @@ export function AuditHero() {
             about you.
           </h1>
           <p className="text-xl text-ink max-w-3xl mb-12 leading-snug">
-            Nine public sources and ten buyer-intent prompts. We check whether your
-            brand is present and cited — and we put a{' '}
-            <span className="font-data text-ok" style={{ fontWeight: 500 }}>source list + share-of-voice</span>{' '}
-            in front of you.
+            Nine public sources. We check whether your brand is present in each one and
+            put a <span className="font-data text-ok" style={{ fontWeight: 500 }}>coverage score + source-by-source gaps</span>{' '}
+            in front of you. Pure deterministic — no third-party LLM API, no rate limits, no
+            signup.
           </p>
           <form onSubmit={submit} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 max-w-3xl">
             <div>
@@ -87,14 +87,14 @@ export function AuditHero() {
           </form>
           {error && <p className="mt-3 text-sm text-signal">{error}</p>}
           <p className="mt-6 text-xs text-muted font-data">
-            ~10 seconds · zero API keys · no signup · scan starts immediately.
+            ~10 seconds · no API key required · no signup · scan starts immediately.
           </p>
           <div className="mt-10 max-w-3xl pt-8 border-t border-rule">
             <p className="eyebrow text-muted mb-3">Read this first</p>
             <p className="text-base text-ink leading-relaxed">
-              The audit ranks 9 public sources and probes Gemini 2.5 Flash with Google Search
-              grounding as a proxy for ChatGPT Search, Perplexity, and Google AI Overviews. A
-              clean audit does not mean a clean fix list. Most missing sources require research
+              The audit checks 9 public sources — Wikipedia, Wikidata, HackerNews, Crunchbase,
+              G2, Capterra, Product Hunt, Reddit, LinkedIn — for your brand's presence. A
+              high score does not mean a clean fix list. Most missing sources require research
               and editing to land credibly — Wikidata items need notability-grade citations,
               Crunchbase listings go through verification, Show HN threads need technical voice
               that survives moderation. The score tells you the gap. Closing the gap is the

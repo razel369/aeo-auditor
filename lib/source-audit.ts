@@ -2,16 +2,30 @@
  * Run a coverage audit. Scans all 9 sources in parallel (with concurrency cap),
  * computes the score, persists to Turso (best-effort), and returns the report.
  *
- * v0.6: also runs a parallel engine audit (Gemini 2.5 Flash + Google Search
- * Grounding, free at 500 RPD) and attaches it to the report.
+ * v0.9: removed the engine-probe layer entirely (no Gemini grounding). The audit
+ * is now pure deterministic — every score is computed from public APIs
+ * (MediaWiki, Wikidata, Algolia HN) plus URL-presence checks. Zero third-party
+ * API keys, zero rate limits beyond what those public APIs themselves impose.
+ *
+ * What we still keep:
+ *   - 9 source-presence adapters (live + stub + gated + skipped)
+ *   - Coverage score, weighted by adapter reliability
+ *   - Action list with work-shape framing
+ *   - Drift detection between audits (coverage-only)
+ *   - Seed-based competitor list (no engine-driven sightings)
  */
 
 import { nanoid } from 'nanoid';
 import { getSourceAdapters, type SourceProfile, type SourceId } from './source-adapters';
 import { buildReport, scoreAudit, actionsFor, type CitationCoverageReport } from './source-scoring';
-import { saveSourceScan, saveSourceAudit, getSourceAuditWithRows, distinctBrandsScanned, listEngineScansForAudit, getDb } from './db';
-import { runEngineAudit, type EngineAuditResult } from './engine-audit';
-import { analyzeCompetitors, type CompetitorAnalysis } from './competitor-library';
+import {
+  saveSourceScan,
+  saveSourceAudit,
+  getSourceAuditWithRows,
+  distinctBrandsScanned,
+  getDb,
+} from './db';
+import { competitorsForCategory, type CompetitorSeed } from './competitor-library';
 
 const CONCURRENCY = 5;
 const REQUEST_TIMEOUT_MS = 12_000; // total scan timeout
@@ -46,13 +60,30 @@ async function scanAll(brand: string, category: string | null): Promise<SourcePr
   return out;
 }
 
-export interface SourceAuditResult extends CitationCoverageReport {
-  auditId: string;
-  engine: EngineAuditResult | null;
-  competitors: CompetitorAnalysis | null;
+export interface CompetitorWatchlist {
+  /** Seeds matched for this audit's category. */
+  competitors: CompetitorSeed[];
+  /** True if any competitor shows up in the brand's source profile set. */
+  overlapWithBrand: boolean;
+  /** Names of competitors whose seed domains overlap with this brand's URLs. */
+  overlappingCompetitors: string[];
 }
 
-export async function runSourceAudit(brand: string, category?: string): Promise<SourceAuditResult> {
+export interface SourceAuditResult extends CitationCoverageReport {
+  auditId: string;
+  /**
+   * v0.9: competitor watchlist comes from a hand-curated seed library keyed on
+   * category. It is not derived from any engine probe — we explicitly do not
+   * know which competitors AI engines cite. What we know: which competitors
+   * exist in your category, so you have a watchlist to monitor yourself.
+   */
+  competitors: CompetitorWatchlist | null;
+}
+
+export async function runSourceAudit(
+  brand: string,
+  category?: string,
+): Promise<SourceAuditResult> {
   const profiles = await Promise.race([
     scanAll(brand, category ?? null),
     new Promise<SourceProfile[]>((_, reject) =>
@@ -75,48 +106,59 @@ export async function runSourceAudit(brand: string, category?: string): Promise<
   const baseReport = buildReport(profiles, brand, category ?? null);
   const auditId = nanoid(10);
 
-  // v0.6: kick off the engine probe in parallel. If it errors or the key
-  // is missing, we still return the source-coverage report with engine=null
-  // so the UI can show "engine probes not configured".
-  const apiKey = process.env.GEMINI_API_KEY;
-  const engine = await runEngineAudit({
-    auditId,
-    brand,
-    category: category ?? null,
-    apiKey,
-  }).catch((e): EngineAuditResult | null => ({
-    auditId,
-    brand,
-    category: category ?? null,
-    scannedAt: new Date().toISOString(),
-    promptsTotal: 0,
-    promptsWithUrls: 0,
-    brandCitations: 0,
-    brandMentionsInText: 0,
-    uniqueDomainsCited: [],
-    citationRate: 0,
-    engineScore: 0,
-    probes: [{
-      prompt: '(engine audit error)', citedUrls: [], citedDomains: [],
-      brandMentionedUrl: false, brandMentionedText: false,
-      textExcerpt: '', error: String((e as Error).message ?? e), durationMs: 0,
-    }],
-  }));
+  const competitors = buildWatchlist(profiles, brand, category ?? null);
 
-  // v0.7: run competitor analysis on whatever the engine layer produced.
-  // If engine is null or all probes errored, we still return competitors=null
-  // (no data to compare against).
-  const competitors: CompetitorAnalysis | null = engine && engine.probes.length > 0
-    ? analyzeCompetitors({
-        brand,
-        category: category ?? null,
-        probes: engine.probes,
-      })
-    : null;
-
-  const report: SourceAuditResult = { ...baseReport, auditId, engine, competitors };
+  const report: SourceAuditResult = {
+    ...baseReport,
+    auditId,
+    competitors,
+  };
   await persistReport(report).catch(() => { /* best-effort */ });
   return report;
+}
+
+/**
+ * Build a watchlist from the seed library, plus a small signal that any of
+ * the competitors already share a source URL with the brand.
+ *
+ * This is intentionally not "share-of-voice". We do not measure how often
+ * AI engines cite one competitor vs another; we only list the candidates
+ * that exist in the seed library for the category.
+ */
+function buildWatchlist(
+  profiles: SourceProfile[],
+  brand: string,
+  category: string | null,
+): CompetitorWatchlist | null {
+  if (!category) return null;
+  const seeds = competitorsForCategory(category);
+  if (seeds.length === 0) return null;
+
+  // Cheap overlap signal: does any of the brand's URLs share a hostname with
+  // a competitor's seed domains? This is informative, not authoritative.
+  const brandHosts = new Set<string>();
+  for (const p of profiles) {
+    if (!p.url) continue;
+    try {
+      brandHosts.add(new URL(p.url).hostname.replace(/^www\./, ''));
+    } catch { /* skip */ }
+  }
+  const overlappingCompetitors: string[] = [];
+  for (const seed of seeds) {
+    for (const d of seed.domains) {
+      const host = d.replace(/^www\./, '').toLowerCase();
+      if (brandHosts.has(host)) {
+        overlappingCompetitors.push(seed.name);
+        break;
+      }
+    }
+  }
+
+  return {
+    competitors: seeds,
+    overlapWithBrand: overlappingCompetitors.length > 0,
+    overlappingCompetitors,
+  };
 }
 
 export async function persistReport(report: SourceAuditResult): Promise<void> {
@@ -151,9 +193,9 @@ export async function persistReport(report: SourceAuditResult): Promise<void> {
       actionsJson: JSON.stringify(report.actions),
       summaryByMode: JSON.stringify(report.summaryByMode),
       scannedAt: report.scannedAt,
-      sov: report.competitors?.shareOfVoice ?? null,
+      sov: null,
       competitorSightingsJson: report.competitors
-        ? JSON.stringify(report.competitors.sightings)
+        ? JSON.stringify(report.competitors.competitors.map((c) => c.name))
         : null,
       competitorCount: report.competitors?.competitors.length ?? null,
     });
@@ -164,64 +206,20 @@ export async function getPersistedReport(auditId: string): Promise<SourceAuditRe
   const row = await getSourceAuditWithRows(auditId);
   if (!row) return null;
 
-  // v0.6: hydrate engine probes from DB.
-  const engineRows = await listEngineScansForAudit(auditId).catch(() => []);
-  const engine: EngineAuditResult | null = engineRows.length === 0 ? null : (() => {
-    const probes = engineRows.map((r) => ({
-      prompt: r.prompt,
-      citedUrls: JSON.parse(r.cited_urls_json) as string[],
-      citedDomains: JSON.parse(r.cited_domains_json) as string[],
-      brandMentionedUrl: r.brand_mentioned === 1,
-      brandMentionedText: r.brand_mentioned_in_text === 1,
-      textExcerpt: r.text_excerpt ?? '',
-      error: r.error,
-      durationMs: r.duration_ms,
-    }));
-    const brandCitations = probes.filter((p) => p.brandMentionedUrl).length;
-    const brandMentionsInText = probes.filter((p) => p.brandMentionedText).length;
-    const promptsWithUrls = probes.filter((p) => p.citedUrls.length > 0).length;
-    const uniqueDomainsCited = Array.from(new Set(probes.flatMap((p) => p.citedDomains)));
-    return {
-      auditId,
-      brand: row.audit.brand,
-      category: row.audit.category,
-      scannedAt: row.audit.scanned_at,
-      promptsTotal: probes.length,
-      promptsWithUrls,
-      brandCitations,
-      brandMentionsInText,
-      uniqueDomainsCited,
-      citationRate: probes.length ? brandCitations / probes.length : 0,
-      engineScore: Math.min(100, brandCitations * 7 + brandMentionsInText * 3),
-      probes,
-    };
-  })();
-
-  // v0.7: hydrate competitors from DB row.
-  const competitors: CompetitorAnalysis | null = (() => {
-    const sightingsJson = row.audit.competitor_sightings_json;
-    if (!sightingsJson) return null;
-    try {
-      const sightings = JSON.parse(sightingsJson);
-      const totalBrandCitations = sightings.length === 0 ? 0 : engine?.brandCitations ?? 0;
-      const totalCompetitorCitations = sightings.reduce(
-        (sum: number, s: any) => sum + (s.urlCount ?? 0),
-        0,
-      );
-      const denom = totalBrandCitations + totalCompetitorCitations;
-      return {
-        competitors: sightings.map((s: any) => ({ name: s.name, domains: [] })),
-        sightings,
-        brandMentionedInProbe: (engine?.brandCitations ?? 0) > 0 || (engine?.brandMentionsInText ?? 0) > 0,
-        shareOfVoice: row.audit.sov ?? (denom === 0 ? 0 : totalBrandCitations / denom),
-        totalBrandCitations,
-        totalCompetitorCitations,
-        totalProbesWithUrls: engine?.promptsWithUrls ?? 0,
-      };
-    } catch {
-      return null;
+  let competitors: CompetitorWatchlist | null = null;
+  try {
+    if (row.audit.competitor_sightings_json) {
+      const names = JSON.parse(row.audit.competitor_sightings_json) as string[];
+      if (Array.isArray(names) && names.length > 0) {
+        const seeds = competitorsForCategory(row.audit.category ?? '');
+        competitors = {
+          competitors: seeds.filter((s) => names.includes(s.name)),
+          overlapWithBrand: false,
+          overlappingCompetitors: [],
+        };
+      }
     }
-  })();
+  } catch { /* skip */ }
 
   return {
     auditId: row.audit.audit_id,
@@ -232,7 +230,6 @@ export async function getPersistedReport(auditId: string): Promise<SourceAuditRe
     profiles: row.profiles,
     actions: row.actions,
     summaryByMode: row.summary,
-    engine,
     competitors,
   };
 }
@@ -272,14 +269,14 @@ export async function listRecentSourceAudits(limit = 8): Promise<{
   }
 }
 
-/* ──────────────────────── DRIFT DETECTION (v0.7) ──────────────────────── */
+/* ──────────────────────── DRIFT DETECTION (v0.9 — coverage-only) ───────── */
 
 export interface AuditHistoryRow {
   auditId: string;
   scannedAt: string;
   overallScore: number;
-  sov: number | null;
-  competitorSightings: any[];
+  /** Snapshot of the brand's URL set at scan time, for presence-diff. */
+  presentSourceIds: string[];
 }
 
 export async function getAuditHistoryForBrand(
@@ -288,8 +285,9 @@ export async function getAuditHistoryForBrand(
 ): Promise<AuditHistoryRow[]> {
   try {
     const c = getDb();
+    // Pull overall_score + a JSON-derived presence set per audit.
     const r = await c.execute({
-      sql: `SELECT audit_id, scanned_at, overall_score, sov, competitor_sightings_json
+      sql: `SELECT audit_id, scanned_at, overall_score, profiles_json
             FROM source_audits
             WHERE brand = ?
             ORDER BY scanned_at DESC
@@ -300,22 +298,21 @@ export async function getAuditHistoryForBrand(
       audit_id: string;
       scanned_at: string;
       overall_score: number;
-      sov: number | null;
-      competitor_sightings_json: string | null;
+      profiles_json: string | null;
     }>;
     return rows.map((row) => {
-      let sightings: any[] = [];
+      let presentSourceIds: string[] = [];
       try {
-        if (row.competitor_sightings_json) {
-          sightings = JSON.parse(row.competitor_sightings_json);
+        if (row.profiles_json) {
+          const profiles = JSON.parse(row.profiles_json) as Array<{ sourceId: string; exists: boolean }>;
+          presentSourceIds = profiles.filter((p) => p.exists).map((p) => p.sourceId);
         }
       } catch { /* skip */ }
       return {
         auditId: row.audit_id,
         scannedAt: row.scanned_at,
         overallScore: row.overall_score ?? 0,
-        sov: row.sov ?? null,
-        competitorSightings: sightings,
+        presentSourceIds,
       };
     });
   } catch {
@@ -329,38 +326,32 @@ export interface DriftComparison {
   previousScannedAt: string;
   currentScannedAt: string;
   daysBetween: number;
-  coverageDelta: number;       // current.overallScore - previous.overallScore
-  sovDelta: number | null;     // current.sov - previous.sov
-  competitorShifts: Array<{
-    name: string;
-    previous: number;
-    current: number;
-    delta: number;
-  }>;
+  coverageDelta: number;
+  sourcesAdded: string[];
+  sourcesRemoved: string[];
+  sourcesStillPresent: string[];
 }
 
-/**
- * Compare two audits for the same brand. Returns a structured diff with
- * coverage delta, share-of-voice delta, and per-competitor sighting deltas.
- */
-export function compareAudits(previous: AuditHistoryRow, current: AuditHistoryRow): DriftComparison {
+export function compareAudits(
+  previous: AuditHistoryRow,
+  current: AuditHistoryRow,
+): DriftComparison {
   const prevDate = new Date(previous.scannedAt).getTime();
   const currDate = new Date(current.scannedAt).getTime();
   const daysBetween = Math.max(0, Math.round((currDate - prevDate) / (1000 * 60 * 60 * 24)));
 
-  const coverageDelta = current.overallScore - previous.overallScore;
-  const sovDelta = previous.sov !== null && current.sov !== null
-    ? current.sov - previous.sov
-    : null;
-
-  const prevByName = new Map(previous.competitorSightings.map((s) => [s.name, s.urlCount ?? 0]));
-  const currByName = new Map(current.competitorSightings.map((s) => [s.name, s.urlCount ?? 0]));
-  const allNames = new Set<string>([...prevByName.keys(), ...currByName.keys()]);
-  const competitorShifts = Array.from(allNames).map((name) => {
-    const prev = prevByName.get(name) ?? 0;
-    const curr = currByName.get(name) ?? 0;
-    return { name, previous: prev, current: curr, delta: curr - prev };
-  }).sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const prevSet = new Set(previous.presentSourceIds);
+  const currSet = new Set(current.presentSourceIds);
+  const sourcesAdded: string[] = [];
+  const sourcesRemoved: string[] = [];
+  const sourcesStillPresent: string[] = [];
+  for (const id of currSet) {
+    if (prevSet.has(id)) sourcesStillPresent.push(id);
+    else sourcesAdded.push(id);
+  }
+  for (const id of prevSet) {
+    if (!currSet.has(id)) sourcesRemoved.push(id);
+  }
 
   return {
     previousAuditId: previous.auditId,
@@ -368,8 +359,9 @@ export function compareAudits(previous: AuditHistoryRow, current: AuditHistoryRo
     previousScannedAt: previous.scannedAt,
     currentScannedAt: current.scannedAt,
     daysBetween,
-    coverageDelta,
-    sovDelta,
-    competitorShifts,
+    coverageDelta: current.overallScore - previous.overallScore,
+    sourcesAdded,
+    sourcesRemoved,
+    sourcesStillPresent,
   };
 }
